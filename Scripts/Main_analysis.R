@@ -1,8 +1,6 @@
 ## ------------------------------------------------------------------------
-## 'Spiders etymologies'
+## 'Spiders etymologies '
 ## ------------------------------------------------------------------------
-
-# 
 
 ## ------------------------------------------------------------------------
 # 'R script to reproduce the analyses'
@@ -11,60 +9,22 @@
 # Analysis performed with R (v. R 4.0.3) and R studio (v. 1.4.1103)
 
 # Loading R packages ------------------------------------------------------
-library("arakno")
+
 library("dplyr")
 library("ggplot2")
 library("gridExtra")
 library("stringr")
-library("xlsx")
 library("tidyverse")
 
-# Functions ---------------------------------------------------------------
+# Source functions  and plot parameters -------------------------------------------------
 
-## Function for calculating the standard error
-std <- function(x) sd(x)/sqrt(length(x))
-
-# Custom function to predict logistic regressions
-logisticline <- function(z,model) {
-  eta <- model$coefficients[1] + model$coefficients[2]*z ;
-  1 / (1 + exp(-eta))
-}
-
-logisticline_min <- function(z,model) {
-  eta <- model$coefficients[1] + model$coefficients[2]*z - 1.96*summary(model)$coefficients[2] ;
-  1 / (1 + exp(-eta))
-}
-
-logisticline_max <- function(z,model) {
-  eta <- model$coefficients[1] + model$coefficients[2]*z + 1.96*summary(model)$coefficients[2] ;
-  1 / (1 + exp(-eta))
-}
-
-## Ggplot custom theme
-
-theme_year <- theme(
-  legend.position = c(0.3, 0.7),
-  legend.background = element_blank(),
-  legend.title = element_blank(),
-  legend.text = element_text(size=10),
-  axis.title = element_text(size = 10),
-  axis.text.x = element_text(size = 10),
-  axis.text.y = element_text(size = 10),
-  panel.grid = element_blank(),
-  plot.caption = element_text(size = 10, color = "gray50"),
-  plot.title = element_text(face="bold", size=12)
-  
-)
-
-# Setting the working directory -------------------------------------------
-
-setwd("/Users/stefanomammola/Desktop/Mammola et al. Spider_etymology/") # <---- change me :)
+source("Scripts/Functions.R")
 
 # Loading the database ----------------------------------------------------
 
-db <- read.csv(file = "db_etymology.csv", header = TRUE, sep = "\t", as.is = FALSE)
-head(data)
-str(data)
+db <- read.csv(file = "Data/db_etymology_22_01_2021.csv", header = TRUE, sep = "\t", as.is = FALSE)
+head(db)
+str(db)
 
 # Calculating number of characters for each name --------------------------
 Ncar_Gen   <- sapply(as.vector(db$genus),nchar) #genus
@@ -78,50 +38,7 @@ hist(Ncar_Sp,main="sp")
 hist(Ncar_GenSp,main="gen sp")
 
 # Storing the data
-db <- data.frame(db,Ncar_Gen,Ncar_Sp,Ncar_GenSp,GenSp = paste(db$genus,db$species,sep=' '))
-
-# Geography of species ----------------------------------------------------
-
-library("arakno")
-library("dplyr")
-library("countrycode")
-
-# ISO code wsc
-ISO <- force(wscmap)
-colnames(ISO)[1] <- "distribution"
-
-# ISO code vs country
-data_cont <- force(codelist)
-data_cont <- data_cont %>% select(continent,code=genc3c)
-data_cont <- na.omit(data_cont)
-
-Cont <- unique(data_cont$continent)
-
-# Match
-db$distribution <- as.character(db$distribution)
-
-distribution_string <- lapply(1:nrow(db), function (x) tolower(strsplit(db$distribution[x], 
-                       c("\\, | and | to |from |\\?|\\/|probably|possibly|introduced"))[[1]]) )
-
-list_distr <- lapply(1:length(distribution_string), 
-                     function (x) colSums(ISO[ISO$distribution %in% distribution_string[[x]] , ][,2:ncol(ISO)]))
-
-distribution <- do.call("rbind",list_distr)
-
-continent_list <- list()
-
-for(i in 1:nrow(distribution))  {
-  
-  distr_i <- distribution[i, ]
-  continent <- unique(data_cont[data_cont$code %in% names(distr_i[distr_i > 0]),]$continent) 
-  
-  continent <- factor(continent, levels = Cont)
-  
-  continent_list[[i]] <- table(continent)
-  }
-
-final_distribution <- data.frame(code = db$code, genus = db$genus, species = db$species, distribution = db$distribution, do.call("rbind",continent_list))
-write.csv(final_distribution, "distribution.csv")
+db <- data.frame(db, Ncar_Gen, Ncar_Sp, Ncar_GenSp, GenSp = paste(db$genus,db$species,sep=' '))
 
 # General statistics ------------------------------------------------------
 
@@ -142,18 +59,12 @@ authors <- do.call("c",str_split(db$author, c(", "))) #separate author by comma
 authors <- do.call("c",str_split(authors, c(" & "))) #separate author by &
 authors <- data.frame(sort(table(authors), decreasing = TRUE))
 
-hist(authors$Freq, breaks = 50)
-
-#xlsx::write.xlsx(authors,"Authors.xlsx")
+head(authors)
 
 #Type of check
 table(db$Source)
 
-#Contributors
-table(db$Contributor)
-
 #Etymology counts
-
 nrow(db) - nrow(db[db$N_meanings>0,]) #no etymology
 
 sum_ety <- db[db$N_meanings>0,] %>% 
@@ -171,27 +82,6 @@ sum_ety <- db[db$N_meanings>0,] %>%
 sum_ety[is.na(sum_ety)] <- 0
 
 (sum_ety <- apply(sum_ety, 2, sum))
-
-# Random sampling ---------------------------------------------------------
-
-total = 8*50
-
-names <- c("Stefano",
-           "Diego",
-           "Nathanel",
-           "Atysha",
-           "Dylan",
-           "Julien",
-           "Christophe",
-           "Stephen")
-
-db_inferred <- db[db$Source == "Inferred",] ; droplevels(db_inferred)
-index <- sample(db_inferred$code) [1 : total]
-
-db_sampled   <- db_inferred[db_inferred$code %in% index,]
-db_sampled <- data.frame(Assignment = sort(rep(names, 50)), db_sampled)
-
-#xlsx::write.xlsx(db_sampled,"sampled_cross_validation.xlsx")
 
 ## ------------------------------------------------------------------------
 # 'Curiosity box #1'
@@ -258,6 +148,8 @@ db_year_chr <- db %>%
             Ncar_Sp_se = std(Ncar_Sp)) 
 
 bar1 <- data.frame(Ncar_GenSp)
+bar2 <- data.frame(Ncar_Sp)
+
 (plot_char1 <- ggplot(bar1,aes(x=Ncar_GenSp))+
     labs(title = "(a)",
          x = "N° of characters (Genus + species)", 
@@ -265,14 +157,12 @@ bar1 <- data.frame(Ncar_GenSp)
     geom_bar()+
     theme_bw() + theme_year) ; rm(bar1)
 
-bar2 <- data.frame(Ncar_Sp)
 (plot_char2 <- ggplot(bar2,aes(x=Ncar_Sp))+
     labs(title = "(b)",
          x = "N° of characters (Species)", 
          y = "Frequency")+
   geom_bar()+
   theme_bw() + theme_year) ; rm(bar2)
-
 
 (plot_char3 <- ggplot(db_year_chr[db_year_chr$year<2020,], aes(x=year, y=Ncar_Sp_mean)) + 
     
@@ -291,22 +181,20 @@ bar2 <- data.frame(Ncar_Sp)
     theme_year
 )
 
-pdf("Figure_XX.pdf",width = 8, height = 5, paper = 'special')
+pdf("Figures/Figure_XX.pdf",width = 8, height = 5, paper = 'special')
 
 lay_char <- rbind(c(1,2),c(3,3))
-
 gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3, layout_matrix = lay_char)
 
 dev.off()
 
-
 ## ------------------------------------------------------------------------
 # 'Curiosity box #4'
 
-# How many Arbitrary?
+# How many etymologies are Arbitrary combinaton of letters?
 
 arb <- startsWith(as.character(db$Notes), "Arbitrary combination of letters")
-table(arb)
+table(arb) #433
 
 ## ------------------------------------------------------------------------
 
@@ -393,7 +281,7 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
          title = "A")+
     #subtitle =  "Absolute values")+
     
-    scale_x_continuous(breaks = c(seq(from=min(db_year2$Year),to=max(db_year2$Year),by=30)))+ 
+    scale_x_continuous(breaks = c(seq(from=min(db_year_plot$Year),to=max(db_year_plot$Year),by=30)))+ 
     
     theme_bw()+
     
@@ -516,7 +404,7 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
 # )
 
 
-pdf("Figure_temporal_trends.pdf",width = 14, height = 5, paper = 'special')
+pdf("Figures/Figure_temporal_trends.pdf",width = 14, height = 5, paper = 'special')
 
 gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 2)
 
