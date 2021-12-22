@@ -16,6 +16,10 @@ library("gridExtra")
 library("stringr")
 library("tidyverse")
 
+library("tidymv")
+library("emmeans")
+library("mgcv")
+
 # Source functions  and plot parameters -------------------------------------------------
 
 source("Scripts/Functions.R")
@@ -273,6 +277,48 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
                                paste0("Modern & Past Culture [n= ", sum(db_model$culture),"]"),
                                paste0("Others [n= ", sum(db_model$other),"]"))
 
+# Model temporal trends (Relative values)
+r1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year) + s(Year, by = Type),
+                family=binomial(link = "logit"), data=db_year_plot)
+
+performance::check_overdispersion(r1)
+
+r2 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year, by = Type),
+                family=quasibinomial(link = "identity"), data=db_year_plot)
+
+performance::r2(r2)
+summary(r2)
+
+pairs(emmeans::emmeans(r2, ~Type*s(Year)),
+      simple="Type")
+
+model_p <- tidymv::predict_gam(r2)
+
+range(model_p$fit)
+ci_z = 1.96
+
+(plot_gam <- ggplot(data = model_p, aes(Year, fit)) +
+    
+    geom_point(data= db_year_plot,aes(x= Year, y = Value/Tot, colour=Type, fill = Type), alpha =0.6, shape = 21) +
+    
+    geom_line(aes(y = fit, x = Year, colour = Type),linetype="solid",size=1.1,alpha=1) +
+    geom_ribbon(aes(ymin = fit - (se.fit * ci_z), ymax = fit + (se.fit * ci_z), group = Type, fill = Type),
+                alpha = 0.2)+
+    
+    labs(x = NULL, 
+         y = "Model fit",
+         title = "B")+
+    scale_color_manual(values = COL) +
+    scale_fill_manual(values = COL) + theme_bw() + theme(
+      legend.position = "none",
+      plot.title = element_text(color="black", size=14, face="bold"),
+      axis.title = element_text(size = 12),
+      axis.text.x = element_text(size = 11),
+      axis.text.y = element_text(size = 11),
+      panel.grid = element_blank(),
+      plot.caption = element_text(size = 10, color = "gray30")))
+
+# Make a plate of absolute vs relative
 (plot_trend1 <- ggplot(db_year_plot) +
     
     geom_line(aes(x=Year, y= Value, color=Type),size=.5,linetype = 1) + 
@@ -281,8 +327,7 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
     labs(x = NULL, 
          y = "Total number of etymologies",
          title = "A")+
-    #subtitle =  "Absolute values")+
-    
+   
     scale_x_continuous(breaks = c(seq(from=min(db_year_plot$Year),to=max(db_year_plot$Year),by=30)))+ 
     
     theme_bw()+
@@ -298,37 +343,14 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
       panel.grid = element_blank(),
       plot.caption = element_text(size = 10, color = "gray30")))
 
-#library("gam")
-library("emmeans")
-library("mgcv")
-
-# m1 <- gam::gam(cbind(Value,Tot) ~ s(Year, by = Type),
-#                family=binomial, data=db_year_plot)
-
-m1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year, by = Type),
-          family=binomial(link = "logit"), data=db_year_plot)
-
-performance::check_overdispersion(m1)
-
-summary(m1)
-
-m2 <- gam::gam(cbind(Value,Tot) ~ s(Year)*Type,
-               family=quasibinomial, data=db_year_plot)
-
-performance::check_model(m2)
-summary(m2)
-
-pairs(emmeans::emmeans(m2, ~Type*s(Year)),
-      simple="Type")
-
 (plot_trend2 <- ggplot2::ggplot(db_year_plot, aes(x=Year, y=Value/Tot)) + 
-  #geom_line(aes(x=Year, y= Value/Tot, color=Type),size=.5,linetype = 1) + 
-  geom_point(aes(colour=Type, fill = Type), alpha =0.3, shape = 21) +
-  geom_smooth(aes(colour=Type), se = FALSE) +
-  #scale_y_continuous(trans='log2') +
-  # scale_x_continuous(breaks = c(seq(from=1960, to=2020, by=10)), 
-  #                    labels=c("1960","1970","1980","1990","2000","2010","2020")) +
-    
+  
+  geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
+  geom_smooth(aes(colour=Type), se = TRUE, 
+              method = "gam", 
+              formula = y ~ s(x, bs = "cs"),
+              method.args = list(family = quasibinomial(link = "identity"))) +
+  
   scale_x_continuous(breaks = c(seq(from=1757,to=max(db_year_plot$Year),by=30)))+ 
     
   labs(x = NULL, 
@@ -346,58 +368,12 @@ pairs(emmeans::emmeans(m2, ~Type*s(Year)),
   )
 
 
-library("tidymv")
-#library("gam")
-library("emmeans")
-library("mgcv")
-
-m1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year, by = Type),
-                family=binomial(link = "logit"), data=db_year_plot)
-
-performance::check_overdispersion(m1)
-
-summary(m1)
-
-pairs(emmeans::emmeans(m1, ~Type*s(Year)),
-      simple="Type")
-
-model_p <- tidymv::predict_gam(m1)
-ci_z = 1.96
-group_q <- rlang::enquo(group)
-
-(plot_gam <- ggplot(data = model_p, aes(Year, fit)) +
-  #geom_point(aes(colour=Type, fill = Type), alpha =0.3, shape = 21)  +
-  geom_line(aes(y = fit, x = Year, colour = Type),linetype="solid",size=1.1,alpha=1) +
-  geom_ribbon(aes(ymin = fit - (se.fit * ci_z), ymax = fit + (se.fit * ci_z), group = Type, fill = Type), 
-              alpha = 0.2)+
-  labs(x = NULL, 
-       y = "Model fit",
-       title = "C")+
-  scale_color_manual(values = COL) +
-  scale_fill_manual(values = COL) + theme_bw() + theme(
-    legend.position = "none",
-    plot.title = element_text(color="black", size=14, face="bold"),
-    axis.title = element_text(size = 12),
-    axis.text.x = element_text(size = 11),
-    axis.text.y = element_text(size = 11),
-    panel.grid = element_blank(),
-    plot.caption = element_text(size = 10, color = "gray30")))
-)
- 
-  
 #     
-  
-  
-  tidymv::geom_smooth_ci(group = Type)
-
-
-?tidymv::geom_smooth_ci
-
-# Save the figure ---------------------------------------------------------
+----------------------------------------
 
 pdf("Figures/Figure_temporal_trends.pdf",width = 14, height = 5, paper = 'special')
 
-gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 2)
+gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 3)
 
 dev.off()
 
