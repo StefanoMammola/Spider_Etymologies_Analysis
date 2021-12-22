@@ -105,7 +105,7 @@ levels(col) <- c("blueviolet",rep("grey30",2),"blueviolet",rep("grey30",2),
                  rep("grey30",6),
                  rep("grey30",7),
                  rep("blueviolet",2))
- 
+
 (plot_CountSP <- ggplot(top30, aes(x= sp, y=N))+
     geom_bar(stat="identity", colour = "black", fill= col)+
     labs(title="Most frequent spider names (N > 30 occurrences across the World Spider Catalog)", x=NULL, y = "Count")+
@@ -133,7 +133,6 @@ db[db$Ncar_Sp == 2,]$species #Shortest specific epithet: ab an ef fo la kh mi no
 # 'Curiosity box #3'
 
 # What is the distribution of etymologies by letter
-
 (plot_Letter <- ggplot(data.frame(table(Letter)),aes(x= Letter, y=Freq))+
     geom_bar(stat="identity", colour = "black")+
     labs(title=NULL, x=NULL, y = "Count")+
@@ -170,7 +169,7 @@ bar2 <- data.frame(Ncar_Sp)
 
 (plot_char3 <- ggplot(db_year_chr[db_year_chr$year<2020,], aes(x=year, y=Ncar_Sp_mean)) + 
     
-    geom_line(linetype = 1,alpha=1,col="black") + 
+    geom_line(linetype = 1, alpha = 1, col = "black") + 
     
     geom_vline(aes(xintercept = 1900),linetype = 1, color = "gray70", size = 0.2) +
     
@@ -377,7 +376,178 @@ gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 3)
 
 dev.off()
 
+# Checking differences by Region --------------------------------------
+db3 <- db[db$N_meanings>0,] %>% dplyr::select(year,
+                                              Asia,
+                                              Europe,
+                                              Africa,
+                                              Americas,
+                                              Oceania,
+                                              size,
+                                              shape,
+                                              colour,
+                                              behaviour,
+                                              ecology,
+                                              geography,
+                                              scientists,
+                                              otherPeople,
+                                              modernCulture,
+                                              pastCulture,
+                                              others) %>% data.frame
 
+db3 <- data.frame(db3[,c(1:6)],
+                  morpho = rowSums(db3[,c(7:9)]),
+                  ecol = rowSums(db3[,c(10:11)]), 
+                  geo = db3[,12],
+                  people = rowSums(db3[,c(13:14)]),
+                  culture = rowSums(db3[,c(15:16)]),
+                  other = db3[,17])
+
+db3[,7:ncol(db3)] <- apply(db3[,7:ncol(db3)], 2, function (x) ifelse(x > 1, 1 , x)) %>% data.frame
+db3[is.na(db3)] <- 0
+
+# How many species x continent? 
+table(rowSums(db3[,c(2:6)]))
+
+db3 <- data.frame(db3, SUM_Continent = rowSums(db3[,c(2:6)]))
+db3 <- db3[db3$SUM_Continent == 1,]
+
+#db3 <- db3[db3$SUM_Continent != 0,]
+
+library("eatATA")
+db3 <- eatATA::dummiesToFactor(dat = db3, 
+                        dummies = colnames(db3[,c(2:6)]), 
+                        facVar = "Continent")
+
+db3 <- within(db3, Continent <- relevel(Continent, ref = "Europe"))
+
+model <- list()
+plot_model <- list()
+
+names_var <- c(paste0("Morphology [n= ", sum(db3$morpho),"]"),
+               paste0("Ecology & Behavior [n= ", sum(db3$ecol),"]"),
+               paste0("Geography [n= ", sum(db3$geo),"]"),
+               paste0("People [n= ", sum(db3$people),"]"),
+               paste0("Modern & Past Culture [n= ", sum(db3$culture),"]"),
+               paste0("Others [n= ", sum(db3$other),"]"))
+
+for(i in 7:12) { 
+  
+  message(paste0("-------- Model for ", paste0(colnames(db3)[i]), " --------"))
+  formula_i <- as.formula(paste0(colnames(db3)[i]," ~ ", colnames(db3)[14]))
+  m_i <- glm(formula_i, data = db3, family = "binomial")
+  print(summary(m_i))
+  model[[i-6]] <- m_i
+  
+  plot_model[[i-6]] <- sjPlot::plot_model(m_i, 
+                     title = paste0(LETTERS[i-6], ") " , names_var[i-6]),
+                     sort.est = FALSE,  
+                     vline.color = "grey80",
+                     colors = "grey5",
+                     show.values = TRUE, 
+                     value.offset = .3, 
+                     se = TRUE, 
+                     show.p = TRUE) + ylim(-1.5,1) + 
+             geom_hline(lty = 1, size = 1.2, col = "grey80", yintercept = 0, alpha = 0.8) + 
+                theme_bw() + theme_year
+  
+  }
+
+pdf("Figures/Figure_continent.pdf",width = 14, height = 8, paper = 'special')
+
+gridExtra::grid.arrange(plot_model[[1]],plot_model[[2]], plot_model[[3]],
+                        plot_model[[4]],plot_model[[5]], plot_model[[6]], 
+                        nrow = 2, ncol = 3)
+
+dev.off()
+
+
+## temporal trends
+
+for(i in 1:nlevels(db3$Continent)) { 
+  
+  db_i <- db3[db3[,i+1] == 1,] #select continent
+  
+  db_year_i <- apply(db_i[,c(7:12)], 2, function (x) tapply(x, as.factor(db_i$year), sum)) %>% data.frame
+  
+  db_year_i <- data.frame(db_year_i)
+  
+  db_year_i_plot <- data.frame(Year  = as.numeric(rep(rownames(db_year_i), 6 )),
+                             Value = c(db_year_i$morpho,
+                                       db_year_i$ecol,
+                                       db_year_i$geo,
+                                       db_year_i$people,
+                                       db_year_i$culture,
+                                       db_year_i$other),
+                             Continent = rep(colnames(db3)[i+1] ,  nrow(db_year_i)*6  ),
+                             Type = c(rep("Morphology",nrow(db_year_i)),
+                                      rep("Ecology & Behavior",nrow(db_year_i)),
+                                      rep("Geography",nrow(db_year_i)),
+                                      rep("People",nrow(db_year_i)),
+                                      rep("Modern & past culture",nrow(db_year_i)),
+                                      rep("Others",nrow(db_year_i))),
+                             Tot = rep(rowSums(db_year_i),6))
+  
+  if(i>1)
+    db_yr_reg <- rbind(db_yr_reg,db_year_i_plot)
+  else
+    db_yr_reg <- db_year_i_plot
+  }
+
+
+db_yr_reg$Type <- as.factor(db_yr_reg$Type)
+db_yr_reg$Type <- factor(db_yr_reg$Type, 
+                              levels = c("Morphology",
+                                         "Ecology & Behavior",
+                                         "Geography",
+                                         "People",
+                                         "Modern & past culture",
+                                         "Others"))
+
+db_yr_reg$Continent <- as.factor(db_yr_reg$Continent)
+db_yr_reg <- within(db_yr_reg, Continent <- relevel(Continent, ref = "Europe"))
+
+# Model temporal trends (Relative values)
+t1 <- mgcv::gam(cbind(Value,Tot) ~  s(Year, by = Type, bs = "cs") + s(Year, by = Continent, bs = "cs"),
+                family=binomial(link = "logit"), data= db_yr_reg)
+
+performance::check_overdispersion(t1)
+
+r2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type, bs = "cs") + s(Year, by = Continent),
+                family=quasibinomial(link = "identity"), data=db_yr_reg)
+
+
+plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) + 
+    
+    facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
+    
+    geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
+    geom_smooth(aes(colour=Type), se = TRUE, 
+                method = "gam", 
+                formula = y ~ s(x, bs = "cs", k = 3),
+                method.args = list(family = quasibinomial(link = "identity"))) +
+    
+    scale_x_continuous(breaks = c(seq(from=1757,to=2020,by=30)))+ 
+    
+    labs(x = NULL, 
+         y = "Relative proportion of etymologies",
+         title = NULL)+
+    scale_color_manual(values = COL) +
+    scale_fill_manual(values = COL) + theme_bw() + theme(
+      legend.position = "none",
+      plot.title = element_text(color="black", size=14, face="bold"),
+      axis.title = element_text(size = 12),
+      axis.text.x = element_text(size = 11),
+      axis.text.y = element_text(size = 11),
+      panel.grid = element_blank(),
+      plot.caption = element_text(size = 10, color = "gray30"))
+
+pdf("Figures/Figure_reg_year.pdf",width = 14, height = 8, paper = 'special')
+
+plot_reg
+dev.off()
+
+warnings()
 # (plot_trend2 <- ggplot() +
 #     labs(x = NULL, 
 #          y = "Relative proportion of etymologies",
