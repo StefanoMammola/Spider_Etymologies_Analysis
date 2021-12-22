@@ -11,11 +11,12 @@
 # Loading R packages ------------------------------------------------------
 
 library("dplyr")
+library("eatATA")
 library("ggplot2")
 library("gridExtra")
 library("stringr")
 library("tidyverse")
-
+library("magrittr")
 library("tidymv")
 library("emmeans")
 library("mgcv")
@@ -298,8 +299,6 @@ ci_z = 1.96
 
 (plot_gam <- ggplot(data = model_p, aes(Year, fit)) +
     
-    geom_point(data= db_year_plot,aes(x= Year, y = Value/Tot, colour=Type, fill = Type), alpha =0.6, shape = 21) +
-    
     geom_line(aes(y = fit, x = Year, colour = Type),linetype="solid",size=1.1,alpha=1) +
     geom_ribbon(aes(ymin = fit - (se.fit * ci_z), ymax = fit + (se.fit * ci_z), group = Type, fill = Type),
                 alpha = 0.2)+
@@ -407,23 +406,37 @@ db3[,7:ncol(db3)] <- apply(db3[,7:ncol(db3)], 2, function (x) ifelse(x > 1, 1 , 
 db3[is.na(db3)] <- 0
 
 # How many species x continent? 
-table(rowSums(db3[,c(2:6)]))
 
+table(rowSums(db3[,c(2:6)]))
 db3 <- data.frame(db3, SUM_Continent = rowSums(db3[,c(2:6)]))
+
 db3 <- db3[db3$SUM_Continent == 1,]
 
-#db3 <- db3[db3$SUM_Continent != 0,]
+#db3 <- db3[db3$SUM_Continent != 0,] # remove species with undetermined distribution
 
-library("eatATA")
-db3 <- eatATA::dummiesToFactor(dat = db3, 
-                        dummies = colnames(db3[,c(2:6)]), 
+# multiple row of species occuring in multiple countries
+# db_single    <- db3[db3$SUM_Continent == 1,]
+# db_multiple  <- db3[db3$SUM_Continent > 1,]
+# 
+# for(i in 1:nrow(db_multiple)){ 
+#   
+#   db_i <- db_multiple[i,]
+#   db_i <- apply(db_i, 2, function(x) rep(x, db_i$SUM_Continent))
+# 
+#   if(i>1)
+#     db_multiple2 <- rbind(db_multiple2,db_i)
+#   else
+#     db_multiple2 <- db_i
+#   
+# }
+
+db3 <- eatATA::dummiesToFactor(dat = db3, dummies = colnames(db3[,c(2:6)]), 
                         facVar = "Continent")
 
 db3 <- within(db3, Continent <- relevel(Continent, ref = "Europe"))
 
 model <- list()
 plot_model <- list()
-
 names_var <- c(paste0("Morphology [n= ", sum(db3$morpho),"]"),
                paste0("Ecology & Behavior [n= ", sum(db3$ecol),"]"),
                paste0("Geography [n= ", sum(db3$geo),"]"),
@@ -432,35 +445,43 @@ names_var <- c(paste0("Morphology [n= ", sum(db3$morpho),"]"),
                paste0("Others [n= ", sum(db3$other),"]"))
 
 for(i in 7:12) { 
-  
   message(paste0("-------- Model for ", paste0(colnames(db3)[i]), " --------"))
   formula_i <- as.formula(paste0(colnames(db3)[i]," ~ ", colnames(db3)[14]))
   m_i <- glm(formula_i, data = db3, family = "binomial")
-  print(summary(m_i))
   model[[i-6]] <- m_i
+}
+
+# Extract estimates
+for(i in 1:length(model)) { 
+   
+  Estimates_i <- model[[i]] %>% summary %>% 
+    magrittr::extract2("coefficients") %>% # extract estimates
+    as.data.frame %>% rownames_to_column("Variable") %>% 
+    dplyr::filter(!row_number() %in% 1) %>%  #remove intercept
+    dplyr::rename(SE = 3, z = 4, p = 5) 
   
-  plot_model[[i-6]] <- sjPlot::plot_model(m_i, 
-                     title = paste0(LETTERS[i-6], ") " , names_var[i-6]),
-                     sort.est = FALSE,  
-                     vline.color = "grey80",
-                     colors = "grey5",
-                     show.values = TRUE, 
-                     value.offset = .3, 
-                     se = TRUE, 
-                     show.p = TRUE) + ylim(-1.5,1) + 
-             geom_hline(lty = 1, size = 1.2, col = "grey80", yintercept = 0, alpha = 0.8) + 
-                theme_bw() + theme_year
+  Estimates_i$Variable <- c("Africa","Americas","Asia","Oceania")
   
-  }
+  Estimates_i <- data.frame(Estimates_i, Type = rep(names_var[i],nrow(Estimates_i)))
+  
+  if(i > 1)
+    Estimates <- rbind(Estimates, Estimates_i)
+  else
+    Estimates <- Estimates_i
+}
 
-pdf("Figures/Figure_continent.pdf",width = 14, height = 8, paper = 'special')
+(plot_regional <- ggplot2::ggplot(data = Estimates, aes(Variable, Estimate)) +
+  facet_wrap( ~ Type, nrow = 2, ncol = 3) +
+  geom_hline(lty = 1, size = 1, col = "grey80", yintercept = 0) +
+  geom_errorbar(aes(ymin = Estimate-SE, ymax = Estimate+SE), width = 0, col = "grey5") +
+  #ylim(-1.5,1)+
+  labs(y = expression(paste("Estimated beta" %+-% "Standard error")),
+       x = NULL)+
+  geom_point(size = 2) + theme_bw() + theme_year + coord_flip())
 
-gridExtra::grid.arrange(plot_model[[1]],plot_model[[2]], plot_model[[3]],
-                        plot_model[[4]],plot_model[[5]], plot_model[[6]], 
-                        nrow = 2, ncol = 3)
-
+pdf("Figures/Figure_continent.pdf",width = 8, height = 5, paper = 'special')
+plot_regional
 dev.off()
-
 
 ## temporal trends
 
@@ -516,15 +537,14 @@ performance::check_overdispersion(t1)
 r2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type, bs = "cs") + s(Year, by = Continent),
                 family=quasibinomial(link = "identity"), data=db_yr_reg)
 
-
 plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) + 
     
     facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
     
-    geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
+    #geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
     geom_smooth(aes(colour=Type), se = TRUE, 
                 method = "gam", 
-                formula = y ~ s(x, bs = "cs", k = 3),
+                formula = y ~ s(x, bs = "cs", k = 4),
                 method.args = list(family = quasibinomial(link = "identity"))) +
     
     scale_x_continuous(breaks = c(seq(from=1757,to=2020,by=30)))+ 
@@ -543,11 +563,9 @@ plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) +
       plot.caption = element_text(size = 10, color = "gray30"))
 
 pdf("Figures/Figure_reg_year.pdf",width = 14, height = 8, paper = 'special')
-
 plot_reg
 dev.off()
 
-warnings()
 # (plot_trend2 <- ggplot() +
 #     labs(x = NULL, 
 #          y = "Relative proportion of etymologies",
