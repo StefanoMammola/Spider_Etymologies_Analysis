@@ -181,7 +181,7 @@ bar2 <- data.frame(Ncar_Sp)
     theme_year
 )
 
-pdf("Figures/Figure_XX.pdf",width = 8, height = 5, paper = 'special')
+pdf("Figures/Figure_Box1.pdf",width = 8, height = 5, paper = 'special')
 
 lay_char <- rbind(c(1,2),c(3,3))
 gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3, layout_matrix = lay_char)
@@ -247,6 +247,8 @@ db_year_plot <- data.frame(Year  = as.numeric(rep(rownames(db_year), 6 )),
                        Tot = rep(rowSums(db_year),6)
                        )
 
+db_year_plot$Type <- as.factor(db_year_plot$Type)
+
 db_year_plot$Type <- factor(db_year_plot$Type, 
                             levels = c("Morphology",
                                       "Ecology & Behavior",
@@ -268,7 +270,7 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
                                paste0("Ecology & Behavior [n= ", sum(db_model$ecol),"]"),
                                paste0("Geography [n= ", sum(db_model$geo),"]"),
                                paste0("People [n= ", sum(db_model$people),"]"),
-                               paste0("Modern & past culture [n= ", sum(db_model$culture),"]"),
+                               paste0("Modern & Past Culture [n= ", sum(db_model$culture),"]"),
                                paste0("Others [n= ", sum(db_model$other),"]"))
 
 (plot_trend1 <- ggplot(db_year_plot) +
@@ -296,39 +298,143 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
       panel.grid = element_blank(),
       plot.caption = element_text(size = 10, color = "gray30")))
 
-(plot_trend2 <- ggplot() +
-    labs(x = NULL, 
+#library("gam")
+library("emmeans")
+library("mgcv")
+
+# m1 <- gam::gam(cbind(Value,Tot) ~ s(Year, by = Type),
+#                family=binomial, data=db_year_plot)
+
+m1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year, by = Type),
+          family=binomial(link = "logit"), data=db_year_plot)
+
+performance::check_overdispersion(m1)
+
+summary(m1)
+
+m2 <- gam::gam(cbind(Value,Tot) ~ s(Year)*Type,
+               family=quasibinomial, data=db_year_plot)
+
+performance::check_model(m2)
+summary(m2)
+
+pairs(emmeans::emmeans(m2, ~Type*s(Year)),
+      simple="Type")
+
+(plot_trend2 <- ggplot2::ggplot(db_year_plot, aes(x=Year, y=Value/Tot)) + 
+  #geom_line(aes(x=Year, y= Value/Tot, color=Type),size=.5,linetype = 1) + 
+  geom_point(aes(colour=Type, fill = Type), alpha =0.3, shape = 21) +
+  geom_smooth(aes(colour=Type), se = FALSE) +
+  #scale_y_continuous(trans='log2') +
+  # scale_x_continuous(breaks = c(seq(from=1960, to=2020, by=10)), 
+  #                    labels=c("1960","1970","1980","1990","2000","2010","2020")) +
+    
+  scale_x_continuous(breaks = c(seq(from=1757,to=max(db_year_plot$Year),by=30)))+ 
+    
+  labs(x = NULL, 
          y = "Relative proportion of etymologies",
          title = "B")+
+  scale_color_manual(values = COL) +
+  scale_fill_manual(values = COL) + theme_bw() + theme(
+    legend.position = "none",
+    plot.title = element_text(color="black", size=14, face="bold"),
+    axis.title = element_text(size = 12),
+    axis.text.x = element_text(size = 11),
+    axis.text.y = element_text(size = 11),
+    panel.grid = element_blank(),
+    plot.caption = element_text(size = 10, color = "gray30"))
+  )
 
-    geom_smooth(data = db_model, aes(y = morpho/tot, x = year),
-                method = "gam", formula = y ~ s(x), col= COL[1], fill = COL[1])+
-    
-    geom_smooth(data = db_model, aes(y = ecol/tot, x = year),
-                method = "gam", formula = y ~ s(x), col= COL[2], fill = COL[2])+
-    
-    geom_smooth(data = db_model, aes(y = geo/tot, x = year),
-                method = "gam", formula = y ~ s(x), col= COL[3], fill = COL[3])+
-    
-    geom_smooth(data = db_model, aes(y = people/tot, x = year),
-                method = "gam", formula = y ~ s(x), col= COL[4], fill = COL[4])+
-    
-    geom_smooth(data = db_model, aes(y = culture/tot, x = year),
-                method = "gam", formula = y ~ s(x), col= COL[5], fill = COL[5])+
-    
-    geom_smooth(data = db_model, aes(y = other/tot, x = year),
-                method = "gam", formula = y ~ s(x), col= COL[6], fill = COL[6])+
-    
-    theme_bw()+
-    theme(
-      plot.title = element_text(color="black", size=14, face="bold"),
-      axis.title = element_text(size = 12),
-      axis.text.x = element_text(size = 11),
-      axis.text.y = element_text(size = 11),
-      panel.grid = element_blank(),
-      plot.caption = element_text(size = 10, color = "gray30"))
-  
+
+library("tidymv")
+#library("gam")
+library("emmeans")
+library("mgcv")
+
+m1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year, by = Type),
+                family=binomial(link = "logit"), data=db_year_plot)
+
+performance::check_overdispersion(m1)
+
+summary(m1)
+
+pairs(emmeans::emmeans(m1, ~Type*s(Year)),
+      simple="Type")
+
+model_p <- tidymv::predict_gam(m1)
+ci_z = 1.96
+group_q <- rlang::enquo(group)
+
+(plot_gam <- ggplot(data = model_p, aes(Year, fit)) +
+  #geom_point(aes(colour=Type, fill = Type), alpha =0.3, shape = 21)  +
+  geom_line(aes(y = fit, x = Year, colour = Type),linetype="solid",size=1.1,alpha=1) +
+  geom_ribbon(aes(ymin = fit - (se.fit * ci_z), ymax = fit + (se.fit * ci_z), group = Type, fill = Type), 
+              alpha = 0.2)+
+  labs(x = NULL, 
+       y = "Model fit",
+       title = "C")+
+  scale_color_manual(values = COL) +
+  scale_fill_manual(values = COL) + theme_bw() + theme(
+    legend.position = "none",
+    plot.title = element_text(color="black", size=14, face="bold"),
+    axis.title = element_text(size = 12),
+    axis.text.x = element_text(size = 11),
+    axis.text.y = element_text(size = 11),
+    panel.grid = element_blank(),
+    plot.caption = element_text(size = 10, color = "gray30")))
 )
+ 
+  
+#     
+  
+  
+  tidymv::geom_smooth_ci(group = Type)
+
+
+?tidymv::geom_smooth_ci
+
+# Save the figure ---------------------------------------------------------
+
+pdf("Figures/Figure_temporal_trends.pdf",width = 14, height = 5, paper = 'special')
+
+gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 2)
+
+dev.off()
+
+
+# (plot_trend2 <- ggplot() +
+#     labs(x = NULL, 
+#          y = "Relative proportion of etymologies",
+#          title = "B")+
+# 
+#     geom_smooth(data = db_model, aes(y = morpho/tot, x = year),
+#                 method = "gam", formula = y ~ s(x), col= COL[1], fill = COL[1])+
+#     
+#     geom_smooth(data = db_model, aes(y = ecol/tot, x = year),
+#                 method = "gam", formula = y ~ s(x), col= COL[2], fill = COL[2])+
+#     
+#     geom_smooth(data = db_model, aes(y = geo/tot, x = year),
+#                 method = "gam", formula = y ~ s(x), col= COL[3], fill = COL[3])+
+#     
+#     geom_smooth(data = db_model, aes(y = people/tot, x = year),
+#                 method = "gam", formula = y ~ s(x), col= COL[4], fill = COL[4])+
+#     
+#     geom_smooth(data = db_model, aes(y = culture/tot, x = year),
+#                 method = "gam", formula = y ~ s(x), col= COL[5], fill = COL[5])+
+#     
+#     geom_smooth(data = db_model, aes(y = other/tot, x = year),
+#                 method = "gam", formula = y ~ s(x), col= COL[6], fill = COL[6])+
+#     
+#     theme_bw()+
+#     theme(
+#       plot.title = element_text(color="black", size=14, face="bold"),
+#       axis.title = element_text(size = 12),
+#       axis.text.x = element_text(size = 11),
+#       axis.text.y = element_text(size = 11),
+#       panel.grid = element_blank(),
+#       plot.caption = element_text(size = 10, color = "gray30"))
+#   
+# )
 
 # (plot_trend2 <- ggplot() +
 #     labs(x = NULL, 
@@ -404,9 +510,5 @@ levels(db_year_plot$Type) <- c(paste0("Morphology [n= ", sum(db_model$morpho),"]
 # )
 
 
-pdf("Figures/Figure_temporal_trends.pdf",width = 14, height = 5, paper = 'special')
 
-gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 2)
-
-dev.off()
 

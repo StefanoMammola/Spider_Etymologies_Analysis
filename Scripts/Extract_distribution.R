@@ -28,13 +28,13 @@ data_cont <- na.omit(data_cont)
 
 Cont <- unique(data_cont$continent) #Continent string
 
-# Match ISO code vs distirbution in the main database
+# Match ISO code vs distribution in the main database
 db$distribution <- as.character(db$distribution)
 
 distribution_string <- lapply(1:nrow(db), function (x) tolower(strsplit(db$distribution[x], 
                        c("\\, | and | to |from |\\?|\\/|probably|possibly|introduced"))[[1]]) )
 
-# Takes ca. 2 minute::
+# Takes ca. 2 minute:
 list_distr <- lapply(1:length(distribution_string), 
                      function (x) colSums(ISO[ISO$distribution %in% distribution_string[[x]] , ][,2:ncol(ISO)]))
 
