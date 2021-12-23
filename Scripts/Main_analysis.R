@@ -281,7 +281,7 @@ r1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year) + s(Year, by = Type),
 
 performance::check_overdispersion(r1) # overdispersed
 
-r2 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year, by = Type),
+r2 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year) + s(Year, by = Type),
                 family=quasibinomial(link = "logit"), data=db_year_plot)
 
 performance::r2(r2)
@@ -310,7 +310,6 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
     theme_custom())
 
 (plot_trend2 <- ggplot2::ggplot(db_year_plot, aes(x=Year, y=Value/Tot)) + 
-  
   geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
   geom_smooth(aes(colour=Type, fill = Type), se = TRUE, 
               method = "gam", 
@@ -320,16 +319,10 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
   scale_color_manual(values = COL) +
   scale_fill_manual(values = COL)  + 
     labs(x = NULL, 
-         y = "Relative proportion of etymologies",
+         y = "Proportion of etymologies",
          title = "B")+  
-    theme_bw() + theme(
-    legend.position = "none",
-    plot.title = element_text(color="black", size=14, face="bold"),
-    axis.title = element_text(size = 12),
-    axis.text.x = element_text(size = 11),
-    axis.text.y = element_text(size = 11),
-    panel.grid = element_blank(),
-    plot.caption = element_text(size = 10, color = "gray30"))
+    theme_custom() + 
+    theme(legend.position = "none")
   )
 
 # Save
@@ -386,7 +379,6 @@ db3_single <- eatATA::dummiesToFactor(dat = db3_single, dummies = colnames(db3_s
 
 db3_single <- within(db3_single, Continent <- relevel(Continent, ref = "Europe"))
 
-model <- list()
 names_var <-  c(paste0(Names_variables[1]," [n= ", sum(db3_single$morpho),"]"),
                 paste0(Names_variables[2]," [n= ", sum(db3_single$ecol),"]"),
                 paste0(Names_variables[3]," [n= ", sum(db3_single$geo),"]"),
@@ -394,14 +386,13 @@ names_var <-  c(paste0(Names_variables[1]," [n= ", sum(db3_single$morpho),"]"),
                 paste0(Names_variables[5]," [n= ", sum(db3_single$culture),"]"),
                 paste0(Names_variables[6]," [n= ", sum(db3_single$other),"]"))
 
+model <- list()
 for(i in 7:12) { 
   message(paste0("-------- Model for ", paste0(colnames(db3_single)[i]), " --------"))
   formula_i <- as.formula(paste0(colnames(db3_single)[i]," ~ ", colnames(db3_single)[14]))
-  m_i <- glm(formula_i, data = db3_single, family = "binomial")
+  m_i <- glm(formula_i, data = db3_single, family = binomial(link= "cloglog"))
   model[[i-6]] <- m_i
 }
-
-summary(model[[6]])
 
 # Extract estimates
 for(i in 1:length(model)) { 
@@ -415,7 +406,6 @@ for(i in 1:length(model)) {
     dplyr::rename(SE = 3, z = 4, p = 5) #rename
   
   Estimates_i$Variable <- c("Africa","Americas","Asia","Oceania")
-  
   Estimates_i <- data.frame(Estimates_i, Type = rep(names_var[i],nrow(Estimates_i)))
   
   if(i > 1)
@@ -424,7 +414,7 @@ for(i in 1:length(model)) {
     Estimates <- Estimates_i
 }
 
-col_p <- ifelse(Estimates$p > 0.05, "grey5", ifelse(Estimates$Estimate>0,"blue","darkorange") )
+col_p <- ifelse(Estimates$p > 0.001, "grey5", ifelse(Estimates$Estimate>0,"blue","darkorange") )
 
 (plot_regional <- ggplot2::ggplot(data = Estimates, aes(Variable, Estimate)) +
   facet_wrap( ~ Type, nrow = 2, ncol = 3) +
@@ -494,14 +484,15 @@ t1 <- mgcv::gam(cbind(Value,Tot) ~  s(Year, by = Type, bs = "cs") + s(Year, by =
 
 performance::check_overdispersion(t1)
 
-r2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type) + s(Year, by = Continent),
+t2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type) + s(Year, by = Continent),
                 family=quasibinomial(link = "logit"), data=db_yr_reg)
 
-summary(r2) #no difference in temporal trends by continent
+summary(t2) #no difference in temporal trends by continent
+performance::r2(t2)
 
 plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) + 
     facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
-    geom_smooth(aes(colour=Type), se = TRUE,
+    geom_smooth(aes(colour=Type, fill=Type), se = TRUE,
                 method = "gam",
                 formula = y ~ s(x),
                 method.args = list(family = quasibinomial(link = "logit"))) +
@@ -515,7 +506,6 @@ plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) +
 pdf("Figures/Figure_reg_year.pdf",width = 14, height = 8, paper = 'special')
 grid::grid.draw(shift_legend(plot_reg))
 dev.off()
-
 
 # Map ---------------------------------------------------------------------
 
@@ -539,22 +529,17 @@ pie <- data.frame(continent = colnames(db3)[2:6],
                  x = c(103.82,10.38,15.21,-102.52,131.42),
                  y = c(36.56,51.10,-0.83,23.94,-24.20),
                  n = rowSums(pie),
-                 radius = sqrt(rowSums(pie)),
+                 radius = log(rowSums(pie))*3,
                  pie)
-
 
 #Plot
 map <- ggplot() +
   geom_map(map = world, data = world,
-           aes(x = long, y = lat, map_id = region), 
+           aes(long, lat, map_id = region), 
            color = "gray45", fill = "gray45", size = 0.3) +
   labs(title = NULL) + theme_map()
 
-(map2 <- map1 + geom_scatterpie(data = pie, aes(x=x, y=y, group=continent, r=radius),
-                                cols = colnames(pie)[6:11], color=NA, alpha=.9) +
-    geom_scatterpie_legend(pie$radius, x= -150, y= -45, n = 2,
-                           labeller = function (x) x=c(min(pie$n),max(pie$n)))+
-    #scale_fill_manual(values=col_fig2)
+library("scatterpie")
+(map2 <- map + geom_scatterpie(data = pie, aes(x=x, y=y, group=continent, r=20),
+                                cols = colnames(pie)[6:11], color="grey10", alpha=.9) +
     scale_fill_manual("",labels = Names_variables ,values = COL) + theme(legend.position = "top"))
-
-

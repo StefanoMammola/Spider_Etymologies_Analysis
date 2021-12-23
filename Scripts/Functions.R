@@ -29,13 +29,13 @@ yrs <- c(seq(from=1757,to=2010,by=30),2019)
 ## ggplot2 custom themes
 theme_custom <- function(){
   theme_bw() + theme(
-    legend.position = c(0.2, 0.7),
+    legend.position = c(0.25, 0.7),
     legend.background = element_blank(),
     legend.title = element_blank(),
-    legend.text = element_text(size=10),
-    axis.title = element_text(size = 10),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10),
+    legend.text = element_text(size=11),
+    axis.title = element_text(size = 12),
+    axis.text.x = element_text(size = 11),
+    axis.text.y = element_text(size = 11),
     panel.grid = element_blank(),
     plot.caption = element_text(size = 10, color = "gray50"),
     plot.title = element_text(face="bold", size=12)
