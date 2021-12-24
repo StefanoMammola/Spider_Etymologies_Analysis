@@ -12,12 +12,15 @@
 
 library("dplyr")
 library("eatATA")
+library("flextable")
 library("ggplot2")
 library("grid")
 library("gridExtra")
 library("stringr")
 library("tidyverse")
 library("magrittr")
+library("officer")
+library("scatterpie")
 library("tidymv")
 library("emmeans")
 library("mgcv")
@@ -155,13 +158,7 @@ db[db$Ncar_Sp == 2,]$species #Shortest specific epithet: ab an ef fo la kh mi no
 ## ------------------------------------------------------------------------
 # 'Curiosity box #3'
 
-# What is the distribution of etymologies by letter
-(plot_Letter <- ggplot(data.frame(table(Letter)),aes(x= Letter, y=Freq))+
-    geom_bar(stat="identity", colour = "black")+
-    labs(title=NULL, x=NULL, y = "Count")+
-    theme_custom())
-
-## ------------------------------------------------------------------------
+# What is the distribution of etymologies by letters and number of letters?
 
 # Summarizing character data by year
 db_year_chr <- db %>% 
@@ -172,21 +169,21 @@ db_year_chr <- db %>%
             Ncar_Sp_se = std(Ncar_Sp)) 
 
 (plot_char1 <- ggplot(data.frame(Ncar_GenSp),aes(x=Ncar_GenSp))+
-    geom_bar() +
+    geom_bar(colour = "grey30", fill = "grey30") +
     labs(title = "A",
          x = "N° of characters (Genus + species)", 
          y = "Frequency")+
     theme_custom()) 
 
 (plot_char2 <- ggplot(data.frame(Ncar_Sp),aes(x=Ncar_Sp))+
-    geom_bar()+
+    geom_bar(colour = "grey30", fill = "grey30")+
     labs(title = "B",
          x = "N° of characters (Species)", 
          y = "Frequency")+
     theme_custom())
 
 (plot_char3 <- ggplot(db_year_chr[db_year_chr$year<2020,], aes(x=year, y=Ncar_Sp_mean)) + 
-    geom_line(linetype = 1, alpha = 1, col = "black") + 
+    geom_line(linetype = 1, alpha = 1, col = "grey10") + 
     geom_vline(aes(xintercept = 1900),linetype = 1, color = "gray70", size = 0.2) +
     scale_x_continuous(breaks = yrs)+ 
     labs(title = "C",
@@ -195,9 +192,14 @@ db_year_chr <- db %>%
     theme_custom()
 )
 
-pdf("Figures/Figure_Box1.pdf",width = 8, height = 5, paper = 'special')
-lay_char <- rbind(c(1,2),c(3,3))
-gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3, layout_matrix = lay_char)
+(plot_char4 <- ggplot(data.frame(table(Letter)),aes(x= Letter, y=Freq))+
+    geom_bar(stat="identity", colour = "grey30", fill = "grey30")+
+    labs(title="D", x=NULL, y = "Frequency")+
+    theme_custom())
+
+pdf("Figures/Figure_Box1.pdf",width = 8, height = 7, paper = 'special')
+lay_char <- rbind(c(1,2),c(3,3),c(4,4))
+gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3,plot_char4, layout_matrix = lay_char)
 dev.off()
 
 ## ------------------------------------------------------------------------
@@ -269,12 +271,6 @@ db_model      <- data.frame(db_year,  tot = rowSums(db_year[,2:7])) ;
 
 # Modelling ---------------------------------------------------------------
 db_year_plot <- db_year_plot[db_year_plot$Year<2020,] #remove 2020
-levels(db_year_plot$Type) <- c(paste0(Names_variables[1]," [n= ", sum(db_model$morpho),"]"),
-                               paste0(Names_variables[2]," [n= ", sum(db_model$ecol),"]"),
-                               paste0(Names_variables[3]," [n= ", sum(db_model$geo),"]"),
-                               paste0(Names_variables[4]," [n= ", sum(db_model$people),"]"),
-                               paste0(Names_variables[5]," [n= ", sum(db_model$culture),"]"),
-                               paste0(Names_variables[6]," [n= ", sum(db_model$other),"]"))
 
 r1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year) + s(Year, by = Type),
                 family=binomial(link = "logit"), data = db_year_plot)
@@ -288,6 +284,7 @@ performance::r2(r2)
 summary(r2)
 pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
 
+# Plot
 (plot_gam <- ggplot(data = tidymv::predict_gam(r2), aes(Year, fit)) +
     geom_line(aes(y = fit, x = Year, colour = Type),linetype="solid",size=1.1,alpha=1) +
     geom_ribbon(aes(ymin = fit - (se.fit * ci_z), ymax = fit + (se.fit * ci_z), group = Type, fill = Type),
@@ -298,16 +295,6 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
     scale_color_manual(values = COL) +
     scale_fill_manual(values = COL) + 
     theme_custom() + theme(legend.position = "right") )
-
-# Make a plate of absolute vs relative
-(plot_trend1 <- ggplot(db_year_plot) +
-    geom_line(aes(x=Year, y= Value, color=Type),size=.5,linetype = 1) + 
-    scale_color_manual(values= COL)+
-    scale_x_continuous(breaks = yrs)+ 
-    labs(x = NULL, 
-         y = "Total number of etymologies",
-         title = "A")+
-    theme_custom())
 
 (plot_trend2 <- ggplot2::ggplot(db_year_plot, aes(x=Year, y=Value/Tot)) + 
   geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
@@ -325,6 +312,22 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
     theme(legend.position = "none")
   )
 
+levels(db_year_plot$Type) <- c(paste0(Names_variables[1]," [n= ", sum(db_model$morpho),"]"),
+                               paste0(Names_variables[2]," [n= ", sum(db_model$ecol),"]"),
+                               paste0(Names_variables[3]," [n= ", sum(db_model$geo),"]"),
+                               paste0(Names_variables[4]," [n= ", sum(db_model$people),"]"),
+                               paste0(Names_variables[5]," [n= ", sum(db_model$culture),"]"),
+                               paste0(Names_variables[6]," [n= ", sum(db_model$other),"]"))
+
+(plot_trend1 <- ggplot(db_year_plot) +
+    geom_line(aes(x=Year, y= Value, color=Type),size=.5,linetype = 1) + 
+    scale_color_manual(values= COL)+
+    scale_x_continuous(breaks = yrs)+ 
+    labs(x = NULL, 
+         y = "Total number of etymologies",
+         title = "A")+
+    theme_custom())
+
 # Save
 pdf("Figures/Figure_temporal_trends.pdf",width = 14, height = 5, paper = 'special')
 gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 2)
@@ -333,6 +336,10 @@ dev.off()
 pdf("Figures/Figure_gam.pdf",width = 8, height = 5, paper = 'special')
 plot_gam
 dev.off()
+
+# Estimates Table S1
+(table_s1 <- flextable::as_flextable(r2))
+flextable::save_as_docx('Table S1' = table_s1, path = "Tables/table_s1.docx", r_section = sect_properties)
 
 ## ------------------------------------------------------------------------
 
@@ -408,6 +415,8 @@ for(i in 1:length(model)) {
   Estimates_i$Variable <- c("Africa","Americas","Asia","Oceania")
   Estimates_i <- data.frame(Estimates_i, Type = rep(names_var[i],nrow(Estimates_i)))
   
+  #Store model output
+  
   if(i > 1)
     Estimates <- rbind(Estimates, Estimates_i)
   else
@@ -430,9 +439,15 @@ col_p <- ifelse(Estimates$p > 0.001, "grey5", ifelse(Estimates$Estimate>0,"blue"
        x = NULL)+
   theme_custom() + coord_flip())
 
+# Save
 pdf("Figures/Figure_continent.pdf",width = 8, height = 5, paper = 'special')
 plot_regional
 dev.off()
+
+# Table S3-S8
+for(i in c(3:8))
+ flextable::save_as_docx(flextable::as_flextable(model[[i-2]]), 
+  path = paste0("Tables/table_s",i,".docx"), r_section = sect_properties)
 
 ## ------------------------------------------------------------------------
 
@@ -503,9 +518,15 @@ plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) +
     scale_color_manual(values = COL) +
     scale_fill_manual(values = COL) + theme_custom() + theme(legend.position = "left")
 
+# Save
 pdf("Figures/Figure_reg_year.pdf",width = 14, height = 8, paper = 'special')
 grid::grid.draw(shift_legend(plot_reg))
 dev.off()
+
+# Table
+(table_s2 <- flextable::as_flextable(t2))
+
+flextable::save_as_docx('Table S2' = table_s2, path = "Tables/table_s2.docx", r_section = sect_properties)
 
 # Map ---------------------------------------------------------------------
 
@@ -522,7 +543,6 @@ for (i in 1:nlevels(db3_single$Continent)){
     pie <- rbind(pie,db_i)
   else
     pie <- db_i
-  
 } 
 
 pie <- data.frame(continent = colnames(db3)[2:6],
@@ -539,7 +559,6 @@ map <- ggplot() +
            color = "gray45", fill = "gray45", size = 0.3) +
   labs(title = NULL) + theme_map()
 
-library("scatterpie")
 (map2 <- map + geom_scatterpie(data = pie, aes(x=x, y=y, group=continent, r=20),
                                 cols = colnames(pie)[6:11], color="grey10", alpha=.9) +
     scale_fill_manual("",labels = Names_variables ,values = COL) + theme(legend.position = "top"))

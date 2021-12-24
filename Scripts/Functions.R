@@ -4,67 +4,14 @@
 
 # Analysis performed with R (v. R 4.0.3) and R studio (v. 1.4.1103)
 
+# Packages ----------------------------------------------------------------
+
+library("officer")
+
 # Functions ---------------------------------------------------------------
-std <- function(x) sd(x)/sqrt(length(x)) #SE
 
-# Plot parameters ---------------------------------------------------------
-
-## Colors
-COL <- c("black", "darkgreen", "blue", "purple", "orange", "cyan4")
-
-## Names
-Names_variables <- c("Morphology",
-                     "Ecology & Behavior",
-                     "Geography",
-                     "People",
-                     "Modern & Past Culture",
-                     "Others")
-
-# Confidence interval
-ci_z <- 1.96
-
-# Breaks (year)
-yrs <- c(seq(from=1757,to=2010,by=30),2019)
-
-## ggplot2 custom themes
-theme_custom <- function(){
-  theme_bw() + theme(
-    legend.position = c(0.25, 0.7),
-    legend.background = element_blank(),
-    legend.title = element_blank(),
-    legend.text = element_text(size=11),
-    axis.title = element_text(size = 12),
-    axis.text.x = element_text(size = 11),
-    axis.text.y = element_text(size = 11),
-    panel.grid = element_blank(),
-    plot.caption = element_text(size = 10, color = "gray50"),
-    plot.title = element_text(face="bold", size=12)
-  ) }
-
-theme_map <- function(){
-  theme_bw() + theme(
-  axis.text.x  = element_blank(), 
-  axis.text.y  = element_blank(),
-  axis.title.y = element_blank(),
-  axis.title.x = element_blank(), 
-  axis.line.x = element_blank(), 
-  axis.line.y = element_blank(),
-  panel.border = element_blank(),
-  panel.grid.major.x = element_blank(),                                          
-  panel.grid.minor.x = element_blank(),
-  panel.grid.minor.y = element_blank(),
-  panel.grid.major.y = element_blank(), 
-  axis.ticks = element_blank(),
-  plot.margin = unit(c(1,1,1,1), 'cm'),
-  plot.title = element_text(size = 18, vjust = 1, hjust = 0),
-  legend.text = element_text(size = 12),          
-  legend.title = element_blank(),                              
-  legend.position = c(0.1, 0.2), 
-  legend.key = element_blank(),
-  legend.background = element_rect(color = "black", 
-                                   fill = "white", 
-                                   size = 2, linetype = "blank")) }
-
+# Standard error:
+std <- function(x) sd(x)/sqrt(length(x))
 
 # Function to shift legend:
 # Taken from:
@@ -127,3 +74,72 @@ shift_legend <- function(p){
   
   return(gp)
 }
+
+
+# Plot parameters ---------------------------------------------------------
+
+## Colors
+COL <- c("black", "darkgreen", "blue", "purple", "orange", "cyan4")
+
+## Names
+Names_variables <- c("Morphology",
+                     "Ecology & Behavior",
+                     "Geography",
+                     "People",
+                     "Modern & Past Culture",
+                     "Others")
+
+# Confidence interval
+ci_z <- 1.96
+
+# Breaks (year)
+yrs <- c(seq(from=1757,to=2010,by=30),2019)
+
+## ggplot2 custom themes
+theme_custom <- function(){
+  theme_bw() + theme(
+    legend.position = c(0.25, 0.7),
+    legend.background = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size=11),
+    axis.title = element_text(size = 12),
+    axis.text.x = element_text(size = 11),
+    axis.text.y = element_text(size = 11),
+    panel.grid = element_blank(),
+    plot.caption = element_text(size = 10, color = "gray50"),
+    plot.title = element_text(face="bold", size=12)
+  ) }
+
+theme_map <- function(){
+  theme_bw() + theme(
+  axis.text.x  = element_blank(), 
+  axis.text.y  = element_blank(),
+  axis.title.y = element_blank(),
+  axis.title.x = element_blank(), 
+  axis.line.x = element_blank(), 
+  axis.line.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid.major.x = element_blank(),                                          
+  panel.grid.minor.x = element_blank(),
+  panel.grid.minor.y = element_blank(),
+  panel.grid.major.y = element_blank(), 
+  axis.ticks = element_blank(),
+  plot.margin = unit(c(1,1,1,1), 'cm'),
+  plot.title = element_text(size = 18, vjust = 1, hjust = 0),
+  legend.text = element_text(size = 12),          
+  legend.title = element_blank(),                              
+  legend.position = c(0.1, 0.2), 
+  legend.key = element_blank(),
+  legend.background = element_rect(color = "black", 
+                                   fill = "white", 
+                                   size = 2, linetype = "blank")) }
+
+# Table parameters --------------------------------------------------------
+
+sect_properties <- officer::prop_section(
+  page_size = page_size(orient = "landscape",
+                        width = 8.3, height = 11.7),
+  type = "continuous",
+  page_margins = page_mar()
+)
+
