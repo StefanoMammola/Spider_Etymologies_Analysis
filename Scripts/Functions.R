@@ -102,9 +102,14 @@ theme_custom <- function(){
     legend.background = element_blank(),
     legend.title = element_blank(),
     legend.text = element_text(size=11),
+    strip.text = element_text(size = 10,face="bold"),
     axis.title = element_text(size = 12),
     axis.text.x = element_text(size = 11),
     axis.text.y = element_text(size = 11),
+    # length of tick marks - negative sign places ticks inwards
+    axis.ticks.length = unit(-0.75, "mm"),
+    # width of tick marks in mm
+    axis.ticks = element_line(size = .3),
     panel.grid = element_blank(),
     plot.caption = element_text(size = 10, color = "gray50"),
     plot.title = element_text(face="bold", size=12)

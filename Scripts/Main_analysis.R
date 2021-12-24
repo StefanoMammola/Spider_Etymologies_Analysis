@@ -99,7 +99,7 @@ levels(col) <- c(Names_variables[4],
                  rep(Names_variables[1],4),
                  rep(Names_variables[4],2), #raveni
                  rep(Names_variables[1],3),
-                 Names_variables[4], #cambridget
+                 Names_variables[4], #cambridgei
                  Names_variables[1],
                  rep(Names_variables[3],2),
                  Names_variables[4],#kochi
@@ -117,26 +117,25 @@ levels(col) <- c(Names_variables[4],
                  rep(Names_variables[4],2))
 
 top30 <- data.frame(top30,col)
-str(top30)
 top30$col <- factor(top30$col, levels = Names_variables[1:4])
 
 (top_names <- ggplot(top30, aes(x= sp, y=N))+
-    geom_bar(stat="identity", colour = "grey10", 
+    geom_bar(stat="identity", colour = "grey10", size = .1,
              aes(fill= col))+
     scale_fill_manual(values = COL[1:4])+
     labs(title="Most frequent spider names",
-         subtitle="N > 30 occurrences across the World Spider Catalog)", 
+         subtitle="[N > 30 occurrences across the World Spider Catalog]", 
          x=NULL, 
-         y = "Count")+
+         y = "Frequency")+
     coord_flip()+
     theme_custom()+
     theme(
-      legend.position = c(0.7, 0.3),
-      axis.text.y = element_text(size = 10,face = "italic")
+      legend.position = c(0.8, 0.2),
+      axis.text.y = element_text(size = 9,face = "italic")
       ))
 
 # Save
-pdf("Figures/Most_used_names.pdf",width = 8, height = 5, paper = 'special')
+pdf("Figures/Figure 3.pdf",width = 7, height = 5, paper = 'special')
 top_names
 dev.off()
 
@@ -169,17 +168,17 @@ db_year_chr <- db %>%
             Ncar_Sp_se = std(Ncar_Sp)) 
 
 (plot_char1 <- ggplot(data.frame(Ncar_GenSp),aes(x=Ncar_GenSp))+
-    geom_bar(colour = "grey30", fill = "grey30") +
+    geom_bar() +
     labs(title = "A",
-         x = "N° of characters (Genus + species)", 
+         x = "N° of characters (genus + species)", 
          y = "Frequency")+
     theme_custom()) 
 
 (plot_char2 <- ggplot(data.frame(Ncar_Sp),aes(x=Ncar_Sp))+
-    geom_bar(colour = "grey30", fill = "grey30")+
+    geom_bar()+
     labs(title = "B",
-         x = "N° of characters (Species)", 
-         y = "Frequency")+
+         x = "N° of characters (species)", 
+         y = NULL)+
     theme_custom())
 
 (plot_char3 <- ggplot(db_year_chr[db_year_chr$year<2020,], aes(x=year, y=Ncar_Sp_mean)) + 
@@ -194,10 +193,10 @@ db_year_chr <- db %>%
 
 (plot_char4 <- ggplot(data.frame(table(Letter)),aes(x= Letter, y=Freq))+
     geom_bar(stat="identity", colour = "grey30", fill = "grey30")+
-    labs(title="D", x=NULL, y = "Frequency")+
+    labs(title="D", x = "Initial letter (species)", y = "Frequency")+
     theme_custom())
 
-pdf("Figures/Figure_Box1.pdf",width = 8, height = 7, paper = 'special')
+pdf("Figures/Figure Box1.pdf",width = 8, height = 7, paper = 'special')
 lay_char <- rbind(c(1,2),c(3,3),c(4,4))
 gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3,plot_char4, layout_matrix = lay_char)
 dev.off()
@@ -329,11 +328,11 @@ levels(db_year_plot$Type) <- c(paste0(Names_variables[1]," [n= ", sum(db_model$m
     theme_custom())
 
 # Save
-pdf("Figures/Figure_temporal_trends.pdf",width = 14, height = 5, paper = 'special')
+pdf("Figures/Figure 1.pdf",width = 14, height = 5, paper = 'special')
 gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 2)
 dev.off()
 
-pdf("Figures/Figure_gam.pdf",width = 8, height = 5, paper = 'special')
+pdf("Figures/Figure S1.pdf",width = 8, height = 5, paper = 'special')
 plot_gam
 dev.off()
 
@@ -423,7 +422,7 @@ for(i in 1:length(model)) {
     Estimates <- Estimates_i
 }
 
-col_p <- ifelse(Estimates$p > 0.001, "grey5", ifelse(Estimates$Estimate>0,"blue","darkorange") )
+col_p <- ifelse(Estimates$p > 0.001, "grey5", ifelse(Estimates$Estimate>0,"cyan4","brown4") )
 
 (plot_regional <- ggplot2::ggplot(data = Estimates, aes(Variable, Estimate)) +
   facet_wrap( ~ Type, nrow = 2, ncol = 3) +
@@ -439,9 +438,51 @@ col_p <- ifelse(Estimates$p > 0.001, "grey5", ifelse(Estimates$Estimate>0,"blue"
        x = NULL)+
   theme_custom() + coord_flip())
 
+# Add a Map 
+
+# Loading data
+world <- map_data("world")
+
+# Frequency by Continet
+for (i in 1:nlevels(db3_single$Continent)){
+  
+  db_i <- db3[db3[,i+1] == 1, ]
+  db_i <- apply(db_i[,7:12], 2, sum)
+  
+  if(i>1)
+    pie <- rbind(pie,db_i)
+  else
+    pie <- db_i
+} 
+
+pie <- data.frame(continent = colnames(db3)[2:6],
+                  x = c(103.82,10.38,15.21,-102.52,131.42),
+                  y = c(36.56,51.10,-0.83,23.94,-24.20),
+                  n = rowSums(pie),
+                  radius = log(rowSums(pie))*3,
+                  pie)
+
+#Plot
+map <- ggplot() +
+  geom_map(map = world, data = world,
+           aes(long, lat, map_id = region), 
+           color = "gray45", fill = "gray45", size = 0.3) +
+  labs(title = NULL) + theme_map()
+
+(map2 <- map + scatterpie::geom_scatterpie(data = pie, aes(x=x, y=y, group=continent, r=20),
+                                           cols = colnames(pie)[6:11], color="grey10", alpha=.9) +
+    scale_fill_manual("",labels = Names_variables ,values = COL) + 
+    theme(
+      legend.position = c(0.3, 0.1),
+      legend.background = element_rect(linetype = 1, size = .1, color = "grey5", 
+                                       fill=alpha('white', 0.8)),
+      legend.title = element_blank(),
+      legend.direction="horizontal",
+      legend.text = element_text(size=9)))
+
 # Save
-pdf("Figures/Figure_continent.pdf",width = 8, height = 5, paper = 'special')
-plot_regional
+pdf("Figures/Figure 2.pdf",width = 9, height = 7, paper = 'special')
+gridExtra::grid.arrange(map2,plot_regional, nrow = 2, ncol = 1)
 dev.off()
 
 # Table S3-S8
@@ -519,7 +560,7 @@ plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) +
     scale_fill_manual(values = COL) + theme_custom() + theme(legend.position = "left")
 
 # Save
-pdf("Figures/Figure_reg_year.pdf",width = 14, height = 8, paper = 'special')
+pdf("Figures/Figure S2.pdf",width = 15, height = 6, paper = 'special')
 grid::grid.draw(shift_legend(plot_reg))
 dev.off()
 
@@ -527,38 +568,3 @@ dev.off()
 (table_s2 <- flextable::as_flextable(t2))
 
 flextable::save_as_docx('Table S2' = table_s2, path = "Tables/table_s2.docx", r_section = sect_properties)
-
-# Map ---------------------------------------------------------------------
-
-# Loading data
-world <- map_data("world")
-
-# Frequency by Continet
-for (i in 1:nlevels(db3_single$Continent)){
-  
-  db_i <- db3[db3[,i+1] == 1, ]
-  db_i <- apply(db_i[,7:12], 2, sum)
-
-  if(i>1)
-    pie <- rbind(pie,db_i)
-  else
-    pie <- db_i
-} 
-
-pie <- data.frame(continent = colnames(db3)[2:6],
-                 x = c(103.82,10.38,15.21,-102.52,131.42),
-                 y = c(36.56,51.10,-0.83,23.94,-24.20),
-                 n = rowSums(pie),
-                 radius = log(rowSums(pie))*3,
-                 pie)
-
-#Plot
-map <- ggplot() +
-  geom_map(map = world, data = world,
-           aes(long, lat, map_id = region), 
-           color = "gray45", fill = "gray45", size = 0.3) +
-  labs(title = NULL) + theme_map()
-
-(map2 <- map + geom_scatterpie(data = pie, aes(x=x, y=y, group=continent, r=20),
-                                cols = colnames(pie)[6:11], color="grey10", alpha=.9) +
-    scale_fill_manual("",labels = Names_variables ,values = COL) + theme(legend.position = "top"))
