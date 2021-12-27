@@ -108,12 +108,13 @@ bar_ety$Type <- as.factor(bar_ety$Type)
 bar_ety$Type <- factor(bar_ety$Type, levels = Names_variables)
 
 (plot_type <- ggplot(bar_ety, aes(y= N, x= Type ))+
-    geom_bar(stat="identity", colour = "grey5", fill = COL, size = .8) +
+    geom_bar(stat="identity", colour = "grey5", fill = COL, size = .4) +
     labs(title="A",
          x=NULL, 
          y = "Frequency") +
     geom_text(aes(label=Perc), vjust=1.6, color="white", size=3.5)+
-    theme_custom() + theme(axis.text.x = element_text(size = 8)))
+    scale_x_discrete(guide = guide_axis(n.dodge = 2))+
+    theme_custom() + theme(axis.text.x = element_text(size = 10)))
 
 ## ------------------------------------------------------------------------
 # What are the most frequent species names?
@@ -326,12 +327,12 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
     theme(legend.position = "none")
   )
 
-levels(db_year_plot$Type) <- c(paste0(Names_variables[1]," [n= ", sum(db_model$morpho),"]"),
-                               paste0(Names_variables[2]," [n= ", sum(db_model$ecol),"]"),
-                               paste0(Names_variables[3]," [n= ", sum(db_model$geo),"]"),
-                               paste0(Names_variables[4]," [n= ", sum(db_model$people),"]"),
-                               paste0(Names_variables[5]," [n= ", sum(db_model$culture),"]"),
-                               paste0(Names_variables[6]," [n= ", sum(db_model$other),"]"))
+# levels(db_year_plot$Type) <- c(paste0(Names_variables[1]," [n= ", sum(db_model$morpho),"]"),
+#                                paste0(Names_variables[2]," [n= ", sum(db_model$ecol),"]"),
+#                                paste0(Names_variables[3]," [n= ", sum(db_model$geo),"]"),
+#                                paste0(Names_variables[4]," [n= ", sum(db_model$people),"]"),
+#                                paste0(Names_variables[5]," [n= ", sum(db_model$culture),"]"),
+#                                paste0(Names_variables[6]," [n= ", sum(db_model$other),"]"))
 
 (plot_trend1 <- ggplot(db_year_plot) +
     geom_line(aes(x=Year, y= Value, color=Type),size=.5,linetype = 1) + 
