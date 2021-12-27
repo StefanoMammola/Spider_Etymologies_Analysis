@@ -221,7 +221,6 @@ gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3,plot_char4, layout_matr
 dev.off()
 
 # How many etymologies are Arbitrary combinaton of letters?
-nrow(db[db$others == 1,])
 
 table(startsWith(as.character(db$Notes), "Arbitrary combination of letters")) #433
 
@@ -286,13 +285,13 @@ db_model      <- data.frame(db_year,  tot = rowSums(db_year[,2:7])) ;
 # Modelling ---------------------------------------------------------------
 db_year_plot <- db_year_plot[db_year_plot$Year<2020,] #remove 2020
 
-r1 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type),
+r1 <- mgcv::gam(cbind(Value,Tot) ~ s(Year) + Type + s(Year, by = Type),
                 family=binomial(link = "logit"), data = db_year_plot)
 
 performance::check_overdispersion(r1) # overdispersed
 
-r2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type),
-                family=quasibinomial(link = "logit"), data=db_year_plot)
+r2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year) + Type + s(Year, by = Type),
+                family = quasibinomial(link = "logit"), data = db_year_plot)
 
 performance::r2(r2)
 summary(r2)
@@ -300,9 +299,10 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
 
 # Plot
 (plot_gam <- ggplot(data = tidymv::predict_gam(r2), aes(Year, fit)) +
-    geom_line(aes(y = fit, x = Year, colour = Type),linetype="solid",size=1.1,alpha=1) +
+    geom_line(aes(y = fit, x = Year, colour = Type), linetype="solid",size=1.1,alpha=1) +
     geom_ribbon(aes(ymin = fit - (se.fit * ci_z), ymax = fit + (se.fit * ci_z), group = Type, fill = Type),
                 alpha = 0.2)+
+    scale_x_continuous(breaks = yrs)+
     labs(x = NULL, 
          y = "Model fit",
          title = "C")+
@@ -593,4 +593,3 @@ flextable::save_as_docx('Table S1' = flextable::as_flextable(r2),
                         'Table S7' = flextable::as_flextable(model[[5]]),
                         'Table S8' = flextable::as_flextable(model[[6]]),
                         path = "Tables/Supplementary_tables_S1_S8.docx")
-
