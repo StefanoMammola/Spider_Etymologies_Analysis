@@ -69,7 +69,13 @@ table(db$Source)
 
 #Etymology counts
 nrow(db) - nrow(db[db$N_meanings>0,]) #no etymology
+nrow(db) - (nrow(db) - nrow(db[db$N_meanings>0,])) #etymology
 
+# Number of meanings
+table(db$N_meanings)[2] #1 meaning
+sum(table(db$N_meanings)[c(3:6)]) #>1 meaning 
+
+#
 sum_ety <- db[db$N_meanings>0,] %>% 
                dplyr::select(size,
                              shape,
@@ -86,9 +92,30 @@ sum_ety[is.na(sum_ety)] <- 0
 
 (sum_ety <- apply(sum_ety, 2, sum))
 
-## ------------------------------------------------------------------------
-# 'Curiosity box #1'
+N_type <- c(sum(sum_ety[1:3]),
+  sum(sum_ety[4:5]),
+  sum_ety[6],
+  sum(sum_ety[7:8]),
+  sum(sum_ety[9:10]),
+  sum_ety[11])
 
+bar_ety <- data.frame(
+  Type = as.factor(Names_variables),
+  N = N_type,
+  Perc = paste0(round(N_type/sum(N_type)*100,2), rep(" %", length(Names_variables))))
+      
+bar_ety$Type <- as.factor(bar_ety$Type)
+bar_ety$Type <- factor(bar_ety$Type, levels = Names_variables)
+
+(plot_type <- ggplot(bar_ety, aes(y= N, x= Type ))+
+    geom_bar(stat="identity", colour = "grey5", fill = COL, size = .8) +
+    labs(title="A",
+         x=NULL, 
+         y = "Frequency") +
+    geom_text(aes(label=Perc), vjust=1.6, color="white", size=3.5)+
+    theme_custom() + theme(axis.text.x = element_text(size = 8)))
+
+## ------------------------------------------------------------------------
 # What are the most frequent species names?
 Bar_plot <- data.frame(sort(table(db$species))) ; colnames(Bar_plot) <- c("sp","N")
 top30 <- Bar_plot[Bar_plot$N>30,] ; rm(Bar_plot)
@@ -135,12 +162,9 @@ top30$col <- factor(top30$col, levels = Names_variables[1:4])
       ))
 
 # Save
-pdf("Figures/Figure 3.pdf",width = 7, height = 5, paper = 'special')
+pdf("Figures/Figure S1.pdf",width = 7, height = 5, paper = 'special')
 top_names
 dev.off()
-
-## ------------------------------------------------------------------------
-# 'Curiosity box #2'
 
 # What are the longest and shortest species name?
 
@@ -151,11 +175,6 @@ db[db$Ncar_GenSp == range(Ncar_GenSp)[1],]$GenSp #Shortest binomial name: "Gea e
 # Only species
 db[db$Ncar_Sp == range(Ncar_Sp)[2],]$species #Longest specific epithet: "santaritadopassaquatrensis" (26 char)
 db[db$Ncar_Sp == 2,]$species #Shortest specific epithet: ab an ef fo la kh mi no oz oz wa wu yi zu
-
-## ------------------------------------------------------------------------
-
-## ------------------------------------------------------------------------
-# 'Curiosity box #3'
 
 # What is the distribution of etymologies by letters and number of letters?
 
@@ -201,14 +220,10 @@ lay_char <- rbind(c(1,2),c(3,3),c(4,4))
 gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3,plot_char4, layout_matrix = lay_char)
 dev.off()
 
-## ------------------------------------------------------------------------
-# 'Curiosity box #4'
-
 # How many etymologies are Arbitrary combinaton of letters?
+nrow(db[db$others == 1,])
 
 table(startsWith(as.character(db$Notes), "Arbitrary combination of letters")) #433
-
-## ------------------------------------------------------------------------
 
 ###########################################################################
 # Temporal patterns -------------------------------------------------------
@@ -271,12 +286,12 @@ db_model      <- data.frame(db_year,  tot = rowSums(db_year[,2:7])) ;
 # Modelling ---------------------------------------------------------------
 db_year_plot <- db_year_plot[db_year_plot$Year<2020,] #remove 2020
 
-r1 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year) + s(Year, by = Type),
+r1 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type),
                 family=binomial(link = "logit"), data = db_year_plot)
 
 performance::check_overdispersion(r1) # overdispersed
 
-r2 <- mgcv::gam(cbind(Value,Tot) ~ Type + s(Year) + s(Year, by = Type),
+r2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type),
                 family=quasibinomial(link = "logit"), data=db_year_plot)
 
 performance::r2(r2)
@@ -290,10 +305,10 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
                 alpha = 0.2)+
     labs(x = NULL, 
          y = "Model fit",
-         title = NULL)+
+         title = "C")+
     scale_color_manual(values = COL) +
     scale_fill_manual(values = COL) + 
-    theme_custom() + theme(legend.position = "right") )
+    theme_custom() + theme(legend.position = "none"))
 
 (plot_trend2 <- ggplot2::ggplot(db_year_plot, aes(x=Year, y=Value/Tot)) + 
   geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
@@ -305,8 +320,8 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
   scale_color_manual(values = COL) +
   scale_fill_manual(values = COL)  + 
     labs(x = NULL, 
-         y = "Proportion of etymologies",
-         title = "B")+  
+         y = "Proportion",
+         title = "D")+  
     theme_custom() + 
     theme(legend.position = "none")
   )
@@ -323,22 +338,17 @@ levels(db_year_plot$Type) <- c(paste0(Names_variables[1]," [n= ", sum(db_model$m
     scale_color_manual(values= COL)+
     scale_x_continuous(breaks = yrs)+ 
     labs(x = NULL, 
-         y = "Total number of etymologies",
-         title = "A")+
+         y = "Frequency",
+         title = "B")+
     theme_custom())
 
 # Save
-pdf("Figures/Figure 1.pdf",width = 14, height = 5, paper = 'special')
-gridExtra::grid.arrange(plot_trend1,plot_trend2, nrow = 1, ncol = 2)
+pdf("Figures/Figure 1.pdf",width = 14, height = 8, paper = 'special')
+gridExtra::grid.arrange(plot_type, 
+                        plot_trend1,
+                        plot_gam,
+                        plot_trend2, nrow = 2, ncol = 2)
 dev.off()
-
-pdf("Figures/Figure S1.pdf",width = 8, height = 5, paper = 'special')
-plot_gam
-dev.off()
-
-# Estimates Table S1
-(table_s1 <- flextable::as_flextable(r2))
-flextable::save_as_docx('Table S1' = table_s1, path = "Tables/table_s1.docx", r_section = sect_properties)
 
 ## ------------------------------------------------------------------------
 
@@ -392,12 +402,21 @@ names_var <-  c(paste0(Names_variables[1]," [n= ", sum(db3_single$morpho),"]"),
                 paste0(Names_variables[5]," [n= ", sum(db3_single$culture),"]"),
                 paste0(Names_variables[6]," [n= ", sum(db3_single$other),"]"))
 
+# Models:
 model <- list()
 for(i in 7:12) { 
   message(paste0("-------- Model for ", paste0(colnames(db3_single)[i]), " --------"))
   formula_i <- as.formula(paste0(colnames(db3_single)[i]," ~ ", colnames(db3_single)[14]))
   m_i <- glm(formula_i, data = db3_single, family = binomial(link= "cloglog"))
   model[[i-6]] <- m_i
+}
+
+#Contrasts:
+contrast <- list()
+for(i in 1:length(model)) { 
+  message(paste0("-------- Model for ", Names_variables[i], " --------"))
+  (contrast[[i]] <- pairs(emmeans::emmeans(model[[i]], "Continent")))
+  print(contrast[[i]])
 }
 
 # Extract estimates
@@ -423,6 +442,8 @@ for(i in 1:length(model)) {
 }
 
 col_p <- ifelse(Estimates$p > 0.001, "grey5", ifelse(Estimates$Estimate>0,"cyan4","brown4") )
+
+Estimates$Type <- factor(Estimates$Type, levels = names_var)
 
 (plot_regional <- ggplot2::ggplot(data = Estimates, aes(Variable, Estimate)) +
   facet_wrap( ~ Type, nrow = 2, ncol = 3) +
@@ -481,14 +502,9 @@ map <- ggplot() +
       legend.text = element_text(size=9)))
 
 # Save
-pdf("Figures/Figure 2.pdf",width = 9, height = 7, paper = 'special')
+pdf("Figures/Figure 2.pdf",width = 9, height = 8, paper = 'special')
 gridExtra::grid.arrange(map2,plot_regional, nrow = 2, ncol = 1)
 dev.off()
-
-# Table S3-S8
-for(i in c(3:8))
- flextable::save_as_docx(flextable::as_flextable(model[[i-2]]), 
-  path = paste0("Tables/table_s",i,".docx"), r_section = sect_properties)
 
 ## ------------------------------------------------------------------------
 
@@ -564,7 +580,17 @@ pdf("Figures/Figure S2.pdf",width = 15, height = 6, paper = 'special')
 grid::grid.draw(shift_legend(plot_reg))
 dev.off()
 
-# Table
-(table_s2 <- flextable::as_flextable(t2))
+# Save supplementary tables -----------------------------------------------
 
-flextable::save_as_docx('Table S2' = table_s2, path = "Tables/table_s2.docx", r_section = sect_properties)
+set_flextable_defaults(table.layout = "autofit")
+
+flextable::save_as_docx('Table S1' = flextable::as_flextable(r2), 
+                        'Table S2' = flextable::as_flextable(t2),
+                        'Table S3' = flextable::as_flextable(model[[1]]),
+                        'Table S4' = flextable::as_flextable(model[[2]]),
+                        'Table S5' = flextable::as_flextable(model[[3]]),
+                        'Table S6' = flextable::as_flextable(model[[4]]),
+                        'Table S7' = flextable::as_flextable(model[[5]]),
+                        'Table S8' = flextable::as_flextable(model[[6]]),
+                        path = "Tables/Supplementary_tables_S1_S8.docx")
+

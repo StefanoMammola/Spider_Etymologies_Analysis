@@ -138,13 +138,3 @@ theme_map <- function(){
   legend.background = element_rect(color = "black", 
                                    fill = "white", 
                                    size = 2, linetype = "blank")) }
-
-# Table parameters --------------------------------------------------------
-
-sect_properties <- officer::prop_section(
-  page_size = page_size(orient = "landscape",
-                        width = 8.3, height = 11.7),
-  type = "continuous",
-  page_margins = page_mar()
-)
-
