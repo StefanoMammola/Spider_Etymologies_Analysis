@@ -31,7 +31,7 @@ source("Scripts/Functions.R")
 
 # Loading the database ----------------------------------------------------
 
-db <- read.csv(file = "Data/db_etymology_22_01_2021.csv", header = TRUE, sep = "\t", as.is = FALSE)
+db <- read.csv(file = "Data/db_etymology_04_01_2022.csv", header = TRUE, sep = "\t", as.is = FALSE)
 head(db)
 str(db)
 
@@ -73,7 +73,7 @@ nrow(db) - (nrow(db) - nrow(db[db$N_meanings>0,])) #etymology
 
 # Number of meanings
 table(db$N_meanings)[2] #1 meaning
-sum(table(db$N_meanings)[c(3:6)]) #>1 meaning 
+sum(table(db$N_meanings)[c(3:5)]) #>1 meaning 
 
 #
 sum_ety <- db[db$N_meanings>0,] %>% 
@@ -552,22 +552,32 @@ db_yr_reg <- within(db_yr_reg, Continent <- relevel(Continent, ref = "Europe"))
 # Modelling ---------------------------------------------------------------
 db_yr_reg <- db_yr_reg[db_yr_reg$Year<2020,]
 
-t1 <- mgcv::gam(cbind(Value,Tot) ~  s(Year, by = Type, bs = "cs") + s(Year, by = Continent, bs = "cs"),
-                family=binomial(link = "logit"), data= db_yr_reg)
+t1 <- mgcv::gam(cbind(Value,Tot) ~  Continent * Type + s(Year, by = interaction(Continent, Type)),
+                family = binomial(link = "logit"), data = db_yr_reg)
 
 performance::check_overdispersion(t1)
 
-t2 <- mgcv::gam(cbind(Value,Tot) ~ s(Year, by = Type) + s(Year, by = Continent),
-                family=quasibinomial(link = "logit"), data=db_yr_reg)
+t2 <- mgcv::gam(cbind(Value,Tot) ~ Continent * Type + s(Year, by = interaction(Continent, Type)),
+                family = quasibinomial(link = "logit"), data = db_yr_reg)
 
-summary(t2) #no difference in temporal trends by continent
-performance::r2(t2)
+summary(t2)
+performance::r2(t2) #0.85
+
+(plot_t2 <- ggplot(data = tidymv::predict_gam(t2), aes(Year, fit)) +
+    facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
+    geom_line(aes(y = fit, x = Year, colour = Type), linetype="solid",size=1.1,alpha=1) +
+    scale_x_continuous(breaks = yrs)+
+    labs(x = NULL, 
+         y = "Model fit")+
+    scale_color_manual(values = COL) +
+    scale_fill_manual(values = COL) + 
+    theme_custom() + theme(legend.position = "none"))
 
 plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) + 
     facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
     geom_smooth(aes(colour=Type, fill=Type), se = TRUE,
                 method = "gam",
-                formula = y ~ s(x),
+                formula = y ~ s(x, bs = "cs"),
                 method.args = list(family = quasibinomial(link = "logit"))) +
     scale_x_continuous(breaks = yrs)+ 
     labs(x = NULL, 
