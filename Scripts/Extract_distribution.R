@@ -17,7 +17,7 @@ db <- read.csv(file = "Data/db_initial.csv", header = TRUE, sep = "\t", as.is = 
 
 # Extract ISO codes -------------------------------------------------------
 
-# ISO code Wsc
+# ISO code for the World Spider Catalog
 ISO <- force(wscmap)
 colnames(ISO)[1] <- "distribution"
 
@@ -53,8 +53,7 @@ for(i in 1:nrow(distribution))  {
 
 # Store result
 final_distribution <- data.frame(distribution = db$distribution, 
-                                 do.call("rbind",continent_list)
-                                 )
+                                 do.call("rbind",continent_list))
 
 head(final_distribution)
 
