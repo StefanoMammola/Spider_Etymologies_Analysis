@@ -39,7 +39,7 @@ str(db)
 Ncar_Gen   <- sapply(as.vector(db$genus),nchar) #genus
 Ncar_Sp    <- sapply(as.vector(db$species),nchar) #species
 Ncar_GenSp <- sapply(as.vector(paste(db$genus,db$species,sep='')),nchar) #genus + species
-Letter <- substr(as.vector(db$species),1, 1)
+Letter     <- substr(as.vector(db$species),1, 1)
 
 # Storing the data
 db <- data.frame(db, Ncar_Gen, Ncar_Sp, Ncar_GenSp, GenSp = paste(db$genus,db$species,sep=' '))
@@ -67,13 +67,16 @@ head(authors)
 #Type of check
 table(db$Source)
 
+table(db$Source)[1]/sum(table(db$Source))
+
 #Etymology counts
 nrow(db) - nrow(db[db$N_meanings>0,]) #no etymology
 nrow(db) - (nrow(db) - nrow(db[db$N_meanings>0,])) #etymology
 
 # Number of meanings
 table(db$N_meanings)[2] #1 meaning
-sum(table(db$N_meanings)[c(3:5)]) #>1 meaning 
+sum(table(db$N_meanings)[c(3:5)]) #>1 meaning  
+sum(table(db$N_meanings)[c(3:5)])/table(db$N_meanings)[2] # % > 1 meanings
 
 #
 sum_ety <- db[db$N_meanings>0,] %>% 
@@ -190,14 +193,14 @@ db_year_chr <- db %>%
 (plot_char1 <- ggplot(data.frame(Ncar_GenSp),aes(x=Ncar_GenSp))+
     geom_bar() +
     labs(title = "A",
-         x = "N° of characters (genus + species)", 
+         x = "N° of characters (Genus name + species epithet)", 
          y = "Frequency")+
     theme_custom()) 
 
 (plot_char2 <- ggplot(data.frame(Ncar_Sp),aes(x=Ncar_Sp))+
     geom_bar()+
     labs(title = "B",
-         x = "N° of characters (species)", 
+         x = "N° of characters (species epithet)", 
          y = NULL)+
     theme_custom())
 
@@ -207,13 +210,13 @@ db_year_chr <- db %>%
     scale_x_continuous(breaks = yrs)+ 
     labs(title = "C",
          x = NULL, 
-         y = "N° of characters (species)\n[Annual average]")+
+         y = "N° of characters (species epithet)\n[Annual average]")+
     theme_custom()
 )
 
 (plot_char4 <- ggplot(data.frame(table(Letter)),aes(x= Letter, y=Freq))+
     geom_bar(stat="identity", colour = "grey30", fill = "grey30")+
-    labs(title="D", x = "Initial letter (species)", y = "Frequency")+
+    labs(title="D", x = "Initial letter (species epithet)", y = "Frequency")+
     theme_custom())
 
 pdf("Figures/Figure Box1.pdf",width = 8, height = 7, paper = 'special')
@@ -223,7 +226,7 @@ dev.off()
 
 # How many etymologies are Arbitrary combinaton of letters?
 
-table(startsWith(as.character(db$Notes), "Arbitrary combination of letters")) #433
+table(startsWith(as.character(db$Notes), "Arbitrary combination of letters")) #465
 
 ###########################################################################
 # Temporal patterns -------------------------------------------------------
@@ -563,17 +566,17 @@ t2 <- mgcv::gam(cbind(Value,Tot) ~ Continent * Type + s(Year, by = interaction(C
 summary(t2)
 performance::r2(t2) #0.85
 
-(plot_t2 <- ggplot(data = tidymv::predict_gam(t2), aes(Year, fit)) +
-    facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
-    geom_line(aes(y = fit, x = Year, colour = Type), linetype="solid",size=1.1,alpha=1) +
-    scale_x_continuous(breaks = yrs)+
-    labs(x = NULL, 
-         y = "Model fit")+
-    scale_color_manual(values = COL) +
-    scale_fill_manual(values = COL) + 
-    theme_custom() + theme(legend.position = "none"))
+# (plot_t2 <- ggplot(data = tidymv::predict_gam(t2), aes(Year, fit)) +
+#     facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
+#     geom_line(aes(y = fit, x = Year, colour = Type), linetype="solid",size=1.1,alpha=1) +
+#     scale_x_continuous(breaks = yrs)+
+#     labs(x = NULL, 
+#          y = "Model fit")+
+#     scale_color_manual(values = COL) +
+#     scale_fill_manual(values = COL) + 
+#     theme_custom() + theme(legend.position = "none"))
 
-plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) + 
+(plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) + 
     facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
     geom_smooth(aes(colour=Type, fill=Type), se = TRUE,
                 method = "gam",
@@ -584,7 +587,7 @@ plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) +
          y = "Relative proportion of etymologies",
          title = NULL)+
     scale_color_manual(values = COL) +
-    scale_fill_manual(values = COL) + theme_custom() + theme(legend.position = "left")
+    scale_fill_manual(values = COL) + theme_custom() + theme(legend.position = "left"))
 
 # Save
 pdf("Figures/Figure S2.pdf",width = 15, height = 6, paper = 'special')
@@ -604,3 +607,5 @@ flextable::save_as_docx('Table S1' = flextable::as_flextable(r2),
                         'Table S7' = flextable::as_flextable(model[[5]]),
                         'Table S8' = flextable::as_flextable(model[[6]]),
                         path = "Tables/Supplementary_tables_S1_S8.docx")
+
+# End of analyses

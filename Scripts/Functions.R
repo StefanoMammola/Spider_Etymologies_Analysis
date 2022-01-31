@@ -75,7 +75,6 @@ shift_legend <- function(p){
   return(gp)
 }
 
-
 # Plot parameters ---------------------------------------------------------
 
 ## Colors
@@ -87,7 +86,7 @@ Names_variables <- c("Morphology",
                      "Geography",
                      "People",
                      "Modern & Past Culture",
-                     "Others")
+                     "Other")
 
 # Confidence interval
 ci_z <- 1.96
