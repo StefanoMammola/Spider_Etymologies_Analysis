@@ -34,7 +34,7 @@ source("Scripts/Functions.R")
 
 # Loading the database ----------------------------------------------------
 
-db <- read.csv(file = "Data/db_etymology_SPLIT_AMERICA.csv", header = TRUE, sep = "\t", as.is = FALSE)
+db <- read.csv(file = "Data/db_etymology.csv", header = TRUE, sep = "\t", as.is = FALSE)
 head(db)
 str(db)
 
@@ -356,10 +356,8 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
 
 # Save
 pdf("Figures/Figure 1.pdf",width = 14, height = 8, paper = 'special')
-gridExtra::grid.arrange(plot_type, 
-                        plot_trend1,
-                        plot_gam,
-                        plot_trend2, nrow = 2, ncol = 2)
+gridExtra::grid.arrange(plot_type, plot_trend1,
+                        plot_gam, plot_trend2, nrow = 2, ncol = 2)
 dev.off()
 
 ## ------------------------------------------------------------------------
@@ -368,6 +366,7 @@ dev.off()
 # Spatial patterns -------------------------------------------------------
 ###########################################################################
 
+#Re-arrange the data
 db3 <- db[db$N_meanings>0,] %>% dplyr::select(year,
                                               Asia,
                                               Europe,
@@ -398,7 +397,7 @@ db3 <- data.frame(db3[,c(1:7)],
 db3[,8:ncol(db3)] <- apply(db3[,8:ncol(db3)], 2, function (x) ifelse(x > 1, 1 , x)) %>% data.frame
 db3[is.na(db3)] <- 0
 
-# How many species occurring in multiple continents? 
+# How many species occur in multiple continents? 
 table(rowSums(db3[,c(2:7)]))
 db3 <- data.frame(db3, SUM_Continent = rowSums(db3[,c(2:7)]))
 
@@ -448,13 +447,13 @@ for(i in 1:length(model)) {
   Estimates_i <- data.frame(Estimates_i, Type = rep(names_var[i],nrow(Estimates_i)))
   
   #Store model output
-  
   if(i > 1)
     Estimates <- rbind(Estimates, Estimates_i)
   else
     Estimates <- Estimates_i
 }
 
+# Plot
 col_p <- ifelse(Estimates$p > 0.001, "grey5", ifelse(Estimates$Estimate>0,"cyan4","brown4") )
 
 Estimates$Type <- factor(Estimates$Type, levels = names_var)
@@ -464,8 +463,7 @@ Estimates$Type <- factor(Estimates$Type, levels = names_var)
   geom_hline(lty = 3, size = 0.7, col = "grey50", yintercept = 0) +
   geom_errorbar(aes(ymin = Estimate-SE, ymax = Estimate+SE), width = 0, col = col_p) +
   geom_text(aes(Variable, Estimate), 
-            label = round(Estimates$Estimate,2), 
-            #fontface = "italic", 
+            label = round(Estimates$Estimate,2),
             vjust = -1, 
             color = col_p, size = 2) +
   geom_point(size = 2, pch = 21, col = col_p, fill = col_p) +
@@ -526,6 +524,7 @@ dev.off()
 # Temporal patterns by region ----------------------------------------------
 ###########################################################################
 
+#Re-arrange the data
 for(i in 1:nlevels(db3_single$Continent)) { 
   
   db_i <- db3[db3[,i+1] == 1,] #select continent
@@ -556,8 +555,7 @@ for(i in 1:nlevels(db3_single$Continent)) {
   }
 
 db_yr_reg$Type <- as.factor(db_yr_reg$Type)
-db_yr_reg$Type <- factor(db_yr_reg$Type, 
-                              levels = Names_variables)
+db_yr_reg$Type <- factor(db_yr_reg$Type, levels = Names_variables)
 
 db_yr_reg$Continent <- as.factor(db_yr_reg$Continent)
 db_yr_reg <- within(db_yr_reg, Continent <- relevel(Continent, ref = "Europe"))
@@ -569,7 +567,7 @@ t1 <- mgcv::gam(cbind(Value,Tot) ~  Continent * Type + s(Year, by = interaction(
                 family = binomial(link = "logit"), data = db_yr_reg)
 
 performance::check_overdispersion(t1) #minimal overdispersion
-# dispersion ratio =    1.265
+# dispersion ratio = 1.265
 # Pearson's Chi-Squared = 9019.402
 # p-value =  < 0.001
 
@@ -596,7 +594,6 @@ grid::grid.draw(shift_legend(plot_reg))
 dev.off()
 
 # Save supplementary tables -----------------------------------------------
-
 set_flextable_defaults(table.layout = "autofit")
 
 flextable::save_as_docx('Table S1' = flextable::as_flextable(r2), 
