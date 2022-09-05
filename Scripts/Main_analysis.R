@@ -1,12 +1,15 @@
 ## ------------------------------------------------------------------------
-## 'Spiders etymologies '
+## 'Taxonomic practice, creativity, and fashion: What's in a spider name?'
 ## ------------------------------------------------------------------------
+
+# Mammola, S. et al.
 
 ## ------------------------------------------------------------------------
 # 'R script to reproduce the analyses'
 ## ------------------------------------------------------------------------
 
 # Analysis performed with R (v. R 4.0.3) and R studio (v. 1.4.1103)
+# Author: Stefano Mammola
 
 # Loading R packages ------------------------------------------------------
 
@@ -31,7 +34,7 @@ source("Scripts/Functions.R")
 
 # Loading the database ----------------------------------------------------
 
-db <- read.csv(file = "Data/db_etymology_04_01_2022.csv", header = TRUE, sep = "\t", as.is = FALSE)
+db <- read.csv(file = "Data/db_etymology_SPLIT_AMERICA.csv", header = TRUE, sep = "\t", as.is = FALSE)
 head(db)
 str(db)
 
@@ -67,7 +70,7 @@ head(authors)
 #Type of check
 table(db$Source)
 
-table(db$Source)[1]/sum(table(db$Source))
+table(db$Source)[1] / sum(table(db$Source))
 
 #Etymology counts
 nrow(db) - nrow(db[db$N_meanings>0,]) #no etymology
@@ -78,7 +81,7 @@ table(db$N_meanings)[2] #1 meaning
 sum(table(db$N_meanings)[c(3:5)]) #>1 meaning  
 sum(table(db$N_meanings)[c(3:5)])/table(db$N_meanings)[2] # % > 1 meanings
 
-#
+# Totakl distirbution of Etymologies 
 sum_ety <- db[db$N_meanings>0,] %>% 
                dplyr::select(size,
                              shape,
@@ -95,12 +98,19 @@ sum_ety[is.na(sum_ety)] <- 0
 
 (sum_ety <- apply(sum_ety, 2, sum))
 
-N_type <- c(sum(sum_ety[1:3]),
+(N_type <- c(sum(sum_ety[1:3]),
   sum(sum_ety[4:5]),
   sum_ety[6],
   sum(sum_ety[7:8]),
   sum(sum_ety[9:10]),
-  sum_ety[11])
+  sum_ety[11]))
+
+(N_type <- c(sum(sum_ety[1:3]),
+             sum(sum_ety[4:5]),
+             sum_ety[6],
+             sum(sum_ety[7:8]),
+             sum(sum_ety[9:10]),
+             sum_ety[11]))/sum(N_type)
 
 bar_ety <- data.frame(
   Type = as.factor(Names_variables),
@@ -166,7 +176,7 @@ top30$col <- factor(top30$col, levels = Names_variables[1:4])
       ))
 
 # Save
-pdf("Figures/Figure S1.pdf",width = 7, height = 5, paper = 'special')
+pdf("Figures/Figure 2.pdf",width = 7, height = 5, paper = 'special')
 top_names
 dev.off()
 
@@ -219,7 +229,7 @@ db_year_chr <- db %>%
     labs(title="D", x = "Initial letter (species epithet)", y = "Frequency")+
     theme_custom())
 
-pdf("Figures/Figure Box1.pdf",width = 8, height = 7, paper = 'special')
+pdf("Figures/Figure Box1.pdf",width = 9, height = 8, paper = 'special')
 lay_char <- rbind(c(1,2),c(3,3),c(4,4))
 gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3,plot_char4, layout_matrix = lay_char)
 dev.off()
@@ -233,7 +243,7 @@ table(startsWith(as.character(db$Notes), "Arbitrary combination of letters")) #4
 ###########################################################################
 
 # reorganize the dataset
-db2 <- db[db$N_meanings>0,] #remove no meanings
+db2 <- db[db$N_meanings > 0,] #remove no meanings
 
 db2 <- db2 %>% dplyr::select(year,
                       size,
@@ -286,6 +296,11 @@ db_year       <- db_year %>% rownames_to_column("year")
 db_year$year  <- as.numeric(db_year$year)
 db_model      <- data.frame(db_year,  tot = rowSums(db_year[,2:7])) ;
 
+#Most frequent etymologies in the last 10 years
+db_model_2010 <- db_model[db_model$year > 2009,]
+
+apply(db_model_2010[,-c(1,8)], 2, sum)/sum(db_model_2010[,8])
+
 # Modelling ---------------------------------------------------------------
 db_year_plot <- db_year_plot[db_year_plot$Year<2020,] #remove 2020
 
@@ -330,16 +345,9 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
     theme(legend.position = "none")
   )
 
-# levels(db_year_plot$Type) <- c(paste0(Names_variables[1]," [n= ", sum(db_model$morpho),"]"),
-#                                paste0(Names_variables[2]," [n= ", sum(db_model$ecol),"]"),
-#                                paste0(Names_variables[3]," [n= ", sum(db_model$geo),"]"),
-#                                paste0(Names_variables[4]," [n= ", sum(db_model$people),"]"),
-#                                paste0(Names_variables[5]," [n= ", sum(db_model$culture),"]"),
-#                                paste0(Names_variables[6]," [n= ", sum(db_model$other),"]"))
-
 (plot_trend1 <- ggplot(db_year_plot) +
-    geom_line(aes(x=Year, y= Value, color=Type),size=.5,linetype = 1) + 
-    scale_color_manual(values= COL)+
+    geom_line(aes(x = Year, y = Value, color=Type),size=.5,linetype = 1) + 
+    scale_color_manual(values = COL)+
     scale_x_continuous(breaks = yrs)+ 
     labs(x = NULL, 
          y = "Frequency",
@@ -364,7 +372,8 @@ db3 <- db[db$N_meanings>0,] %>% dplyr::select(year,
                                               Asia,
                                               Europe,
                                               Africa,
-                                              Americas,
+                                              N_America,
+                                              S_America,
                                               Oceania,
                                               size,
                                               shape,
@@ -378,25 +387,26 @@ db3 <- db[db$N_meanings>0,] %>% dplyr::select(year,
                                               pastCulture,
                                               others) %>% data.frame
 
-db3 <- data.frame(db3[,c(1:6)],
-                  morpho = rowSums(db3[,c(7:9)]),
-                  ecol = rowSums(db3[,c(10:11)]), 
-                  geo = db3[,12],
-                  people = rowSums(db3[,c(13:14)]),
-                  culture = rowSums(db3[,c(15:16)]),
-                  other = db3[,17])
+db3 <- data.frame(db3[,c(1:7)],
+                  morpho = rowSums(db3[,c(8:10)]),
+                  ecol = rowSums(db3[,c(11:12)]), 
+                  geo = db3[,13],
+                  people = rowSums(db3[,c(14:15)]),
+                  culture = rowSums(db3[,c(16:17)]),
+                  other = db3[,18])
 
-db3[,7:ncol(db3)] <- apply(db3[,7:ncol(db3)], 2, function (x) ifelse(x > 1, 1 , x)) %>% data.frame
+db3[,8:ncol(db3)] <- apply(db3[,8:ncol(db3)], 2, function (x) ifelse(x > 1, 1 , x)) %>% data.frame
 db3[is.na(db3)] <- 0
 
 # How many species occurring in multiple continents? 
-table(rowSums(db3[,c(2:6)]))
-db3 <- data.frame(db3, SUM_Continent = rowSums(db3[,c(2:6)]))
+table(rowSums(db3[,c(2:7)]))
+db3 <- data.frame(db3, SUM_Continent = rowSums(db3[,c(2:7)]))
 
 db3_single <- db3[db3$SUM_Continent == 1,]
-db3_single <- eatATA::dummiesToFactor(dat = db3_single, dummies = colnames(db3_single[,c(2:6)]), 
+db3_single <- eatATA::dummiesToFactor(dat = db3_single, dummies = colnames(db3_single[,c(2:7)]), 
                         facVar = "Continent")
 
+db3_single$Continent <- factor(db3_single$Continent, levels = c("Europe", "Africa", "Asia", "N_America", "S_America", "Oceania"))
 db3_single <- within(db3_single, Continent <- relevel(Continent, ref = "Europe"))
 
 names_var <-  c(paste0(Names_variables[1]," [n= ", sum(db3_single$morpho),"]"),
@@ -408,11 +418,11 @@ names_var <-  c(paste0(Names_variables[1]," [n= ", sum(db3_single$morpho),"]"),
 
 # Models:
 model <- list()
-for(i in 7:12) { 
+for(i in 8:13) { 
   message(paste0("-------- Model for ", paste0(colnames(db3_single)[i]), " --------"))
-  formula_i <- as.formula(paste0(colnames(db3_single)[i]," ~ ", colnames(db3_single)[14]))
+  formula_i <- as.formula(paste0(colnames(db3_single)[i]," ~ ", colnames(db3_single)[15]))
   m_i <- glm(formula_i, data = db3_single, family = binomial(link= "cloglog"))
-  model[[i-6]] <- m_i
+  model[[i-7]] <- m_i
 }
 
 #Contrasts:
@@ -434,7 +444,7 @@ for(i in 1:length(model)) {
     dplyr::filter(!row_number() %in% 1) %>%  #remove intercept
     dplyr::rename(SE = 3, z = 4, p = 5) #rename
   
-  Estimates_i$Variable <- c("Africa","Americas","Asia","Oceania")
+  Estimates_i$Variable <- c("Africa","Asia","North America","Oceania", "South America")
   Estimates_i <- data.frame(Estimates_i, Type = rep(names_var[i],nrow(Estimates_i)))
   
   #Store model output
@@ -472,7 +482,7 @@ world <- map_data("world")
 for (i in 1:nlevels(db3_single$Continent)){
   
   db_i <- db3[db3[,i+1] == 1, ]
-  db_i <- apply(db_i[,7:12], 2, sum)
+  db_i <- apply(db_i[,8:13], 2, sum)
   
   if(i>1)
     pie <- rbind(pie,db_i)
@@ -480,9 +490,9 @@ for (i in 1:nlevels(db3_single$Continent)){
     pie <- db_i
 } 
 
-pie <- data.frame(continent = colnames(db3)[2:6],
-                  x = c(103.82,10.38,15.21,-102.52,131.42),
-                  y = c(36.56,51.10,-0.83,23.94,-24.20),
+pie <- data.frame(continent = colnames(db3)[2:7],
+                  x = c(103.82,10.38,15.21,-102.52,-58.23,131.42),
+                  y = c(36.56,51.10,-0.83,50.94,-13.38,-24.20),
                   n = rowSums(pie),
                   radius = log(rowSums(pie))*3,
                   pie)
@@ -506,7 +516,7 @@ map <- ggplot() +
       legend.text = element_text(size=9)))
 
 # Save
-pdf("Figures/Figure 2.pdf",width = 9, height = 8, paper = 'special')
+pdf("Figures/Figure 4.pdf",width = 8, height = 8, paper = 'special')
 gridExtra::grid.arrange(map2,plot_regional, nrow = 2, ncol = 1)
 dev.off()
 
@@ -519,7 +529,7 @@ dev.off()
 for(i in 1:nlevels(db3_single$Continent)) { 
   
   db_i <- db3[db3[,i+1] == 1,] #select continent
-  db_year_i <- apply(db_i[,c(7:12)], 2, function (x) tapply(x, as.factor(db_i$year), sum)) %>% data.frame
+  db_year_i <- apply(db_i[,c(8:13)], 2, function (x) tapply(x, as.factor(db_i$year), sum)) %>% data.frame
   
   db_year_i <- data.frame(db_year_i)
   
@@ -558,25 +568,16 @@ db_yr_reg <- db_yr_reg[db_yr_reg$Year<2020,]
 t1 <- mgcv::gam(cbind(Value,Tot) ~  Continent * Type + s(Year, by = interaction(Continent, Type)),
                 family = binomial(link = "logit"), data = db_yr_reg)
 
-performance::check_overdispersion(t1)
+performance::check_overdispersion(t1) #minimal overdispersion
+# dispersion ratio =    1.265
+# Pearson's Chi-Squared = 9019.402
+# p-value =  < 0.001
 
-t2 <- mgcv::gam(cbind(Value,Tot) ~ Continent * Type + s(Year, by = interaction(Continent, Type)),
-                family = quasibinomial(link = "logit"), data = db_yr_reg)
+performance::r2(t1) #0.837
 
-summary(t2)
-performance::r2(t2) #0.85
+levels(db_yr_reg$Continent)[c(4,6)] <- c("North America", "South America")
 
-# (plot_t2 <- ggplot(data = tidymv::predict_gam(t2), aes(Year, fit)) +
-#     facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
-#     geom_line(aes(y = fit, x = Year, colour = Type), linetype="solid",size=1.1,alpha=1) +
-#     scale_x_continuous(breaks = yrs)+
-#     labs(x = NULL, 
-#          y = "Model fit")+
-#     scale_color_manual(values = COL) +
-#     scale_fill_manual(values = COL) + 
-#     theme_custom() + theme(legend.position = "none"))
-
-(plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x=Year, y=Value/Tot)) + 
+(plot_reg <- ggplot2::ggplot(db_yr_reg, aes(x = Year, y = Value/Tot)) + 
     facet_wrap( ~ Continent, nrow = 2, ncol = 3) +
     geom_smooth(aes(colour=Type, fill=Type), se = TRUE,
                 method = "gam",
@@ -587,10 +588,10 @@ performance::r2(t2) #0.85
          y = "Relative proportion of etymologies",
          title = NULL)+
     scale_color_manual(values = COL) +
-    scale_fill_manual(values = COL) + theme_custom() + theme(legend.position = "left"))
+    scale_fill_manual(values = COL) + theme_custom() + theme(legend.position = "top"))
 
 # Save
-pdf("Figures/Figure S2.pdf",width = 15, height = 6, paper = 'special')
+pdf("Figures/Figure 3.pdf",width = 16, height = 8, paper = 'special')
 grid::grid.draw(shift_legend(plot_reg))
 dev.off()
 
@@ -599,7 +600,7 @@ dev.off()
 set_flextable_defaults(table.layout = "autofit")
 
 flextable::save_as_docx('Table S1' = flextable::as_flextable(r2), 
-                        'Table S2' = flextable::as_flextable(t2),
+                        'Table S2' = flextable::as_flextable(t1),
                         'Table S3' = flextable::as_flextable(model[[1]]),
                         'Table S4' = flextable::as_flextable(model[[2]]),
                         'Table S5' = flextable::as_flextable(model[[3]]),
