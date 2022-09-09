@@ -235,7 +235,6 @@ gridExtra::grid.arrange(plot_char1,plot_char2,plot_char3,plot_char4, layout_matr
 dev.off()
 
 # How many etymologies are Arbitrary combinaton of letters?
-
 table(startsWith(as.character(db$Notes), "Arbitrary combination of letters")) #465
 
 ###########################################################################
@@ -399,6 +398,8 @@ db3[is.na(db3)] <- 0
 
 # How many species occur in multiple continents? 
 table(rowSums(db3[,c(2:7)]))
+
+#reorganize the dataset
 db3 <- data.frame(db3, SUM_Continent = rowSums(db3[,c(2:7)]))
 
 db3_single <- db3[db3$SUM_Continent == 1,]
