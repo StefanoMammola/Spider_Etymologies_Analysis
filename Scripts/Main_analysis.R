@@ -49,39 +49,38 @@ db <- data.frame(db, Ncar_Gen, Ncar_Sp, Ncar_GenSp, GenSp = paste(db$genus,db$sp
 
 # General statistics ------------------------------------------------------
 
-#number of species
+# Number of species
 length(unique(db$GenSp))
 
-#number of subspecies 
+# Number of subspecies 
 nrow(db)-length(unique(db$GenSp))
 
-#number of unique species etymologies
+# Number of unique species etymologies
 length(unique(db$species))
 
-#Yearly range of the database
+# Yearly range of the database
 range(db$year)
 
-#Most prolific authors
+# Most prolific authors
 authors <- do.call("c",str_split(db$author, c(", "))) #separate author by comma
 authors <- do.call("c",str_split(authors, c(" & "))) #separate author by &
 authors <- data.frame(sort(table(authors), decreasing = TRUE))
 head(authors)
 
-#Type of check
+# Type of check
 table(db$Source)
+table(db$Source) / sum(table(db$Source)) #%
 
-table(db$Source)[1] / sum(table(db$Source))
-
-#Etymology counts
+# Etymology counts
 nrow(db) - nrow(db[db$N_meanings>0,]) #no etymology
 nrow(db) - (nrow(db) - nrow(db[db$N_meanings>0,])) #etymology
 
 # Number of meanings
-table(db$N_meanings)[2] #1 meaning
+table(db$N_meanings) #1 meaning
 sum(table(db$N_meanings)[c(3:5)]) #>1 meaning  
 sum(table(db$N_meanings)[c(3:5)])/table(db$N_meanings)[2] # % > 1 meanings
 
-# Totakl distirbution of Etymologies 
+# Total distribution of Etymologies 
 sum_ety <- db[db$N_meanings>0,] %>% 
                dplyr::select(size,
                              shape,
@@ -328,7 +327,7 @@ pairs(emmeans::emmeans(r2, ~ Type * s(Year)), simple="Type")
     scale_fill_manual(values = COL) + 
     theme_custom() + theme(legend.position = "none"))
 
-(plot_trend2 <- ggplot2::ggplot(db_year_plot, aes(x=Year, y=Value/Tot)) + 
+(plot_trend2 <- ggplot2::ggplot(db_year_plot, aes(x=Year, y = Value/Tot)) + 
   geom_point(aes(colour=Type, fill = Type), alpha =0.6, shape = 21) +
   geom_smooth(aes(colour=Type, fill = Type), se = TRUE, 
               method = "gam", 
@@ -477,7 +476,7 @@ Estimates$Type <- factor(Estimates$Type, levels = names_var)
 # Loading data
 world <- map_data("world")
 
-# Frequency by Continet
+# Frequency by Continent
 for (i in 1:nlevels(db3_single$Continent)){
   
   db_i <- db3[db3[,i+1] == 1, ]
